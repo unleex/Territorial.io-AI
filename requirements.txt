@@ -1,0 +1,5 @@
+numpy==2.4.4
+pettingzoo==1.25.0
+Pillow==12.2.0
+pyscreenshot==3.1
+Requests==2.33.1
