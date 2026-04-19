@@ -1,0 +1,101 @@
+import numpy as np
+from pettingzoo import ParallelEnv
+from game import Game
+from gymnasium import spaces
+
+
+# TODO multiple agents. for simplicity, now let's fit to single agent fitting to algorithmic baseline
+class CustomEnvironment(ParallelEnv):
+    metadata = {
+        "name": "custom_environment_v0",
+    }
+
+    def __init__(self):
+        self.game: Game
+        self.id_permutation: np.ndarray
+        self.reverse_id_permutation: np.ndarray
+        self.reset()
+        self.agents = ["player"]
+        self.termination = False
+        self.truncation = False
+        self.reward = 0.0
+        # map of one-hot vectors (each player + neutral)
+        obs_shape = (
+            self.game.n_players + 1,
+            self.game.n_grid_rows,
+            self.game.n_grid_columns,
+        )
+        self.agent_id = 0
+
+        self.observation_spaces = spaces.Box(
+            low=0,
+            high=1,
+            shape=obs_shape,
+            dtype=bool,
+        )
+        self.action_spaces = spaces.MultiDiscrete(
+            [self.game.n_players + 1, 11]
+        )  # who to attack (or stall) + amount of troops (0%, 10%, 20%, ...)
+
+    def observe(self, agent):
+        board = np.array(self.game.board)
+        permuted_board = np.full(board.shape, -1)
+
+        for original_id, new_id in enumerate(self.id_permutation):
+            permuted_board[board == original_id] = new_id
+        # shift to range [0, n_players]
+        shifted = (permuted_board + 1).astype(int)
+
+        num_channels = self.game.n_players + 1
+        one_hot = np.eye(num_channels, dtype=bool)[shifted]
+        # TODO add per-player stats like balance?
+
+        # Transpose to (Channels, Height, Width) for PyTorch/CNN compatibility
+        return one_hot.transpose(2, 0, 1)
+
+    def reset(self, seed=None, options=None):
+        self.game = Game()
+        self.id_permutation = np.full(self.game.n_players, -1)
+        self.id_permutation[self.agent_id] = 0
+        others = [i for i in range(self.game.n_players) if i != self.agent_id]
+        np.random.shuffle(others)
+        for i, other_player_id in enumerate(others, start=1):
+            self.id_permutation[other_player_id] = i
+        self.reverse_id_permutation = np.empty(self.game.n_players, dtype=int)
+        for original_id, permuted_id in enumerate(self.id_permutation):
+            self.reverse_id_permutation[permuted_id] = original_id
+
+    def step(self, action: tuple[int, float]):
+        # TODO mask out self-attack
+        # TODO advantage reward
+        old_player_size = self.game.id_to_country[self.agent_id]
+        (target_channel, commited_bin) = action
+        commited = commited_bin / 100.0  # Convert 0..10 to 0.0..1.0
+
+        if target_channel == 0:  # neutral land
+            target = -1
+        else:
+            target = self.reverse_id_permutation[target_channel - 1]
+
+        if target >= 0:  # attacked smb
+            self.game.id_to_country[self.agent_id].attackInit(None, target, commited)
+        # else target == -1 => wait
+        obs = self.observe(self.agent)
+        reward = self.game.id_to_country[self.agent_id].size - old_player_size
+        terminated = (
+            self.game.id_to_country[self.agent_id].size == 0
+            or len(self.game.id_to_country) == 1
+        )
+        truncated = False
+        info = {}
+
+        return obs, reward, terminated, truncated, info
+
+    def render(self):
+        return np.array(self.game.board)
+
+    def observation_space(self, agent):
+        return self.observation_spaces[agent]
+
+    def action_space(self, agent):
+        return self.action_spaces[agent]
