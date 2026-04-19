@@ -1,3 +1,4 @@
+from render import GameRenderer
 import numpy as np
 import numpy.typing as npt
 from typing import Dict, Any, Tuple, List, Optional
@@ -7,6 +8,9 @@ from custom_environment.env.game import Game
 from gymnasium import spaces
 
 mock_info = {0: tuple()}
+import matplotlib.pyplot as plt
+from matplotlib.colors import to_rgb
+import numpy as np
 
 
 # TODO multiple agents. for simplicity, now let's fit to single agent fitting to algorithmic baseline
@@ -25,6 +29,7 @@ class CustomEnvironment(ParallelEnv):
         self.reverse_id_permutation: np.ndarray
         self.agent_id = 0
         self.reset()
+        self.renderer = GameRenderer(self.game.countryColors)
         self.possible_agents = [0]
         self.agents = self.possible_agents[:]
         self.terminations = {0: False}
@@ -113,7 +118,7 @@ class CustomEnvironment(ParallelEnv):
         return obs, reward, self.terminations, self.truncations, mock_info
 
     def render(self):
-        return np.array(self.game.board)
+        self.renderer.update(np.array(self.game.board), self.game.n_players)
 
     def observation_space(self, agent):
         return self.observation_spaces[agent]
