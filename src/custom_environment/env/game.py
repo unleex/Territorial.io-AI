@@ -1,6 +1,6 @@
 import random
-from countryClass import country
-from gameAI import runAi
+from custom_environment.env.countryClass import country
+from custom_environment.env.gameAI import runAi
 
 
 class Game:
@@ -20,7 +20,7 @@ class Game:
         self.gameOver = False
         self.n_players = n_players
         self.id_to_country: dict[int, country] = {}
-        self.board = []
+        self.board: list[list[int]] = []
         self.n_grid_rows = grid_rows
         self.n_grid_columns = grid_columns
         for i in range(self.n_grid_rows):

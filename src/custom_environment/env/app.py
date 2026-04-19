@@ -1,9 +1,9 @@
 """Run this file to start the game"""
 
-from cmu_112_graphics import *
-from countryClass import *
-from gameFuncs import *
-from menuFuncs import *
+from custom_environment.env.cmu_112_graphics import *
+from custom_environment.env.countryClass import *
+from custom_environment.env.gameFuncs import *
+from custom_environment.env.menuFuncs import *
 
 
 # returns width, hight

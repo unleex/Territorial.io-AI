@@ -1,7 +1,12 @@
 import numpy as np
+import numpy.typing as npt
+from typing import Dict, Any, Tuple, List, Optional
+from pettingzoo.utils.env import AgentID, ObsDict, ActionDict
 from pettingzoo import ParallelEnv
-from game import Game
+from custom_environment.env.game import Game
 from gymnasium import spaces
+
+mock_info = {0: tuple()}
 
 
 # TODO multiple agents. for simplicity, now let's fit to single agent fitting to algorithmic baseline
@@ -18,10 +23,12 @@ class CustomEnvironment(ParallelEnv):
         self.ticks_delta = ticks_delta
         self.id_permutation: np.ndarray
         self.reverse_id_permutation: np.ndarray
+        self.agent_id = 0
         self.reset()
-        self.agents = [0]
-        self.termination = False
-        self.truncation = False
+        self.possible_agents = [0]
+        self.agents = self.possible_agents[:]
+        self.terminations = {0: False}
+        self.truncations = {0: False}
         self.reward = 0.0
         # map of one-hot vectors (each player + neutral)
         obs_shape = (
@@ -29,21 +36,20 @@ class CustomEnvironment(ParallelEnv):
             self.game.n_grid_rows,
             self.game.n_grid_columns,
         )
-        self.agent_id = 0
 
-        self.observation_spaces = [
-            spaces.Box(
+        self.observation_spaces = {
+            0: spaces.Box(
                 low=0,
                 high=1,
                 shape=obs_shape,
                 dtype=bool,
             )
-        ]
-        self.action_spaces = [
-            spaces.MultiDiscrete([self.game.n_players + 1, 11])
-        ]  # who to attack (or stall) + amount of troops (0%, 10%, 20%, ...)
+        }
+        self.action_spaces = {
+            0: spaces.MultiDiscrete([self.game.n_players + 1, 11])
+        }  # who to attack (or stall) + amount of troops (0%, 10%, 20%, ...)
 
-    def observe(self, _):
+    def observe(self, _=None):
         board = np.array(self.game.board)
         permuted_board = np.full(board.shape, -1)
 
@@ -57,9 +63,11 @@ class CustomEnvironment(ParallelEnv):
         # TODO add per-player stats like balance?
         # TODO definitely add cycle data
         # Transpose to (Channels, Height, Width) for PyTorch/CNN compatibility
-        return one_hot.transpose(2, 0, 1)
+        return {0: (one_hot.transpose(2, 0, 1),)}
 
-    def reset(self, seed=None, options=None):
+    def reset(
+        self, seed: Optional[int] = None, options: Optional[Dict[str, Any]] = None
+    ):
         self.game = Game()
         self.id_permutation = np.full(self.game.n_players, -1)
         self.id_permutation[self.agent_id] = 0
@@ -70,14 +78,18 @@ class CustomEnvironment(ParallelEnv):
         self.reverse_id_permutation = np.empty(self.game.n_players, dtype=int)
         for original_id, permuted_id in enumerate(self.id_permutation):
             self.reverse_id_permutation[permuted_id] = original_id
+        return {0: self.observe()}, mock_info
 
-    def step(self, action: tuple[int, float]):
+    def step(self, action: dict[int, Any]):
+        if not self.agents:
+            return {}, {}, {}, {}, {}
         for _ in range(self.ticks_delta):
             self.game.tick()
         # TODO mask out self-attack
         # TODO advantage reward
-        old_player_size = self.game.id_to_country[self.agent_id]
-        (target_channel, commited_bin) = action
+        old_player_size = self.game.id_to_country[self.agent_id].size
+        target_channel = action[0][0]
+        commited_bin = action[0][1]
         commited = commited_bin / 100.0  # Convert 0..10 to 0.0..1.0
 
         if target_channel == 0:  # neutral land
@@ -86,18 +98,19 @@ class CustomEnvironment(ParallelEnv):
             target = self.reverse_id_permutation[target_channel - 1]
 
         if target >= 0:  # attacked smb
-            self.game.id_to_country[self.agent_id].attackInit(None, target, commited)
+            self.game.id_to_country[self.agent_id].attackInit(
+                self.game, target, commited
+            )
         # else target == -1 => wait
         obs = self.observe(self.agents[0])
-        reward = self.game.id_to_country[self.agent_id].size - old_player_size
-        terminated = (
+        reward = {0: self.game.id_to_country[self.agent_id].size - old_player_size}
+        self.terminations[0] = (
             self.game.id_to_country[self.agent_id].size == 0
             or len(self.game.id_to_country) == 1
         )
-        truncated = False
-        info = {}
-
-        return obs, reward, terminated, truncated, info
+        if self.terminations[0]:
+            self.agents = []
+        return obs, reward, self.terminations, self.truncations, mock_info
 
     def render(self):
         return np.array(self.game.board)

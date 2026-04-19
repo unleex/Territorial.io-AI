@@ -1,11 +1,11 @@
 import math
 import decimal
 import random
-from gameAI import *
+from custom_environment.env.gameAI import *
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from game import Game
+    from custom_environment.env.game import Game
 
 
 def roundHalfUp(d):  # helper-fn
@@ -88,10 +88,10 @@ class country:
         return False
 
     # initializing queue for dfs
-    def attackInit(self, app, id, committed):
+    def attackInit(self, game, id, committed):
         if committed == 0:
             return
-        if id not in findNeighbours(app, self.id):
+        if id not in findNeighbours(game, self.id):
             return
         self.money -= committed
         # If the country is already being attacked, add committed troops to current attack
@@ -102,7 +102,9 @@ class country:
             self.attacks[id] = (temp[0] + committed, temp[1] + committed)
 
     def incrementAttack(self, game: "Game", id):
-        if id != -1 and (id not in game.id_ or game.id_to_country[id].size == 0):
+        if id != -1 and (
+            id not in game.id_to_country or game.id_to_country[id].size == 0
+        ):
             self.attacks[id] = None
             return
         neighbours = 0
