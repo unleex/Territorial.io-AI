@@ -1,9 +1,11 @@
 import random
 from countryClass import country
+from gameAI import runAi
 
 
 class Game:
     def __init__(self, n_players=8, grid_rows=80, grid_columns=80):
+
         self.countryColors = [
             "#ffffffff",
             "#ffff00",
@@ -14,6 +16,8 @@ class Game:
             "#ff00ff",
             "#fc9105",
         ]
+        self.ticks = 0
+        self.gameOver = False
         self.n_players = n_players
         self.id_to_country: dict[int, country] = {}
         self.board = []
@@ -34,3 +38,20 @@ class Game:
                 i, self.countryColors[i], str(i), attacks=temp
             )
             self.board[row][col] = i
+
+    def tick(self):
+        self.ticks += 1
+        L = []
+        for key in self.id_to_country:
+            L.append(key)
+        for key in L:
+            if self.id_to_country[key].size <= 0:
+                if key == 0:
+                    self.gameOver = True
+                    break
+                del self.id_to_country[key]
+                continue
+            self.id_to_country[key].updateMoney()
+            if key != 0:
+                runAi(self, self.id_to_country[key])
+            self.id_to_country[key].incrementAttacks(self)

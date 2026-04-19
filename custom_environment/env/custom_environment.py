@@ -10,12 +10,16 @@ class CustomEnvironment(ParallelEnv):
         "name": "custom_environment_v0",
     }
 
-    def __init__(self):
+    def __init__(self, ticks_delta: int = 1):
+        """
+        ticks_delta: int (default = 1) how many game ticks to run between agent's decisions'
+        """
         self.game: Game
+        self.ticks_delta = ticks_delta
         self.id_permutation: np.ndarray
         self.reverse_id_permutation: np.ndarray
         self.reset()
-        self.agents = ["player"]
+        self.agents = [0]
         self.termination = False
         self.truncation = False
         self.reward = 0.0
@@ -27,17 +31,19 @@ class CustomEnvironment(ParallelEnv):
         )
         self.agent_id = 0
 
-        self.observation_spaces = spaces.Box(
-            low=0,
-            high=1,
-            shape=obs_shape,
-            dtype=bool,
-        )
-        self.action_spaces = spaces.MultiDiscrete(
-            [self.game.n_players + 1, 11]
-        )  # who to attack (or stall) + amount of troops (0%, 10%, 20%, ...)
+        self.observation_spaces = [
+            spaces.Box(
+                low=0,
+                high=1,
+                shape=obs_shape,
+                dtype=bool,
+            )
+        ]
+        self.action_spaces = [
+            spaces.MultiDiscrete([self.game.n_players + 1, 11])
+        ]  # who to attack (or stall) + amount of troops (0%, 10%, 20%, ...)
 
-    def observe(self, agent):
+    def observe(self, _):
         board = np.array(self.game.board)
         permuted_board = np.full(board.shape, -1)
 
@@ -49,7 +55,7 @@ class CustomEnvironment(ParallelEnv):
         num_channels = self.game.n_players + 1
         one_hot = np.eye(num_channels, dtype=bool)[shifted]
         # TODO add per-player stats like balance?
-
+        # TODO definitely add cycle data
         # Transpose to (Channels, Height, Width) for PyTorch/CNN compatibility
         return one_hot.transpose(2, 0, 1)
 
@@ -66,6 +72,8 @@ class CustomEnvironment(ParallelEnv):
             self.reverse_id_permutation[permuted_id] = original_id
 
     def step(self, action: tuple[int, float]):
+        for _ in range(self.ticks_delta):
+            self.game.tick()
         # TODO mask out self-attack
         # TODO advantage reward
         old_player_size = self.game.id_to_country[self.agent_id]
@@ -80,7 +88,7 @@ class CustomEnvironment(ParallelEnv):
         if target >= 0:  # attacked smb
             self.game.id_to_country[self.agent_id].attackInit(None, target, commited)
         # else target == -1 => wait
-        obs = self.observe(self.agent)
+        obs = self.observe(self.agents[0])
         reward = self.game.id_to_country[self.agent_id].size - old_player_size
         terminated = (
             self.game.id_to_country[self.agent_id].size == 0
