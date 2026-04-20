@@ -47,7 +47,7 @@ class CustomEnvironment(ParallelEnv):
                 low=0,
                 high=1,
                 shape=obs_shape,
-                dtype=bool,
+                dtype=np.integer,  # bool actually
             )
         }
         self.action_spaces = {
@@ -108,7 +108,12 @@ class CustomEnvironment(ParallelEnv):
             )
         # else target == -1 => wait
         obs = self.observe(self.agents[0])
-        reward = {0: self.game.id_to_country[self.agent_id].size - old_player_size}
+        # log(a/b) = log(a) - log(b). log to make 10 pixels more
+        # important when agent is small than when it is a large empire
+        reward = {
+            0: np.log(self.game.id_to_country[self.agent_id].size)
+            - np.log(old_player_size)
+        }
         self.terminations[0] = (
             self.game.id_to_country[self.agent_id].size == 0
             or len(self.game.id_to_country) == 1
