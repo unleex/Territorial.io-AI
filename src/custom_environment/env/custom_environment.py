@@ -1,3 +1,5 @@
+from multiprocessing.spawn import prepare
+
 from render import GameRenderer
 import numpy as np
 import numpy.typing as npt
@@ -19,6 +21,18 @@ class CustomEnvironment(ParallelEnv):
         "name": "custom_environment_v0",
     }
 
+    def _prepare(self):
+        self.game = Game()
+        self.id_permutation = np.full(self.game.n_players, -1)
+        self.id_permutation[self.agent_id] = 0
+        others = [i for i in range(self.game.n_players) if i != self.agent_id]
+        np.random.shuffle(others)
+        for i, other_player_id in enumerate(others, start=1):
+            self.id_permutation[other_player_id] = i
+        self.reverse_id_permutation = np.empty(self.game.n_players, dtype=int)
+        for original_id, permuted_id in enumerate(self.id_permutation):
+            self.reverse_id_permutation[permuted_id] = original_id
+
     def __init__(self):
         """
         ticks_delta: int (default = 1) how many game ticks to run between agent's decisions'
@@ -30,7 +44,7 @@ class CustomEnvironment(ParallelEnv):
         self.reverse_id_permutation: np.ndarray
         self.agent_id = 0
         self.render_mode = None
-        self.reset()
+        self._prepare()
         self.renderer = GameRenderer(self.game.countryColors)
         self.possible_agents = [0]
         self.agents = self.possible_agents[:]
@@ -75,16 +89,9 @@ class CustomEnvironment(ParallelEnv):
     def reset(
         self, seed: Optional[int] = None, options: Optional[Dict[str, Any]] = None
     ):
-        self.game = Game()
-        self.id_permutation = np.full(self.game.n_players, -1)
-        self.id_permutation[self.agent_id] = 0
-        others = [i for i in range(self.game.n_players) if i != self.agent_id]
-        np.random.shuffle(others)
-        for i, other_player_id in enumerate(others, start=1):
-            self.id_permutation[other_player_id] = i
-        self.reverse_id_permutation = np.empty(self.game.n_players, dtype=int)
-        for original_id, permuted_id in enumerate(self.id_permutation):
-            self.reverse_id_permutation[permuted_id] = original_id
+        self.agents = self.possible_agents[:]
+        self._prepare()
+        self.renderer.reset()
         return {0: self.observe()}, mock_info
 
     def step(self, action: dict[int, Any]):
@@ -118,8 +125,10 @@ class CustomEnvironment(ParallelEnv):
             self.agents = []
         return obs, reward, self.terminations, self.truncations, mock_info
 
-    def render(self):
-        self.renderer.update(np.array(self.game.board), self.game.n_players)
+    def render(self, targeted_player=-1, commited=0):
+        self.renderer.update(
+            np.array(self.game.board), self.game.n_players, targeted_player, commited
+        )
 
     def observation_space(self, agent):
         return self.observation_spaces[agent]
