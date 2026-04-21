@@ -33,19 +33,21 @@ class CustomEnvironment(ParallelEnv):
         for original_id, permuted_id in enumerate(self.id_permutation):
             self.reverse_id_permutation[permuted_id] = original_id
 
-    def __init__(self):
+    def __init__(self, rendering=True):
         """
         ticks_delta: int (default = 1) how many game ticks to run between agent's decisions'
         """
         super().__init__()
         self.game: Game
-        self.ticks_delta = 1  # FIXME: too low. find optimal
+        self.ticks_delta = 5
         self.id_permutation: np.ndarray
         self.reverse_id_permutation: np.ndarray
         self.agent_id = 0
         self.render_mode = None
         self._prepare()
-        self.renderer = GameRenderer(self.game.countryColors)
+        self.rendering = rendering
+        if self.rendering:
+            self.renderer = GameRenderer(self.game.countryColors)
         self.possible_agents = [0]
         self.agents = self.possible_agents[:]
         self.terminations = {0: False}
@@ -91,7 +93,8 @@ class CustomEnvironment(ParallelEnv):
     ):
         self.agents = self.possible_agents[:]
         self._prepare()
-        self.renderer.reset()
+        if self.rendering:
+            self.renderer.reset()
         return {0: self.observe()}, mock_info
 
     def step(self, action: dict[int, Any]):

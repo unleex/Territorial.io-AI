@@ -62,7 +62,7 @@ def evaluate(
                 )
                 writer.append_data(frame)
 
-            env.render()
+            # env.render()
 
             done = all(
                 terminations.get(a, False) or truncations.get(a, False)

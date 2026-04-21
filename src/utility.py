@@ -36,18 +36,18 @@ def fixed_concat_vec_envs_v1(vec_env, num_vec_envs, num_cpus=0, base_class="gymn
         )
 
 
-def make_env():
+def make_env(num_cpus: int, render=True):
     """
     Factory: AEC → Parallel → VecEnv pipeline.
     SuperSuit's pettingzoo_env_to_vec_env_v1 requires a PARALLEL env.
     """
-    env = CustomEnvironment()
+    env = CustomEnvironment(rendering=render)
 
     env = ss.black_death_v3(env)
     env = ss.pettingzoo_env_to_vec_env_v1(env)
 
     env = fixed_concat_vec_envs_v1(
-        env, num_vec_envs=8, num_cpus=8, base_class="stable_baselines3"
+        env, num_vec_envs=num_cpus, num_cpus=num_cpus, base_class="stable_baselines3"
     )
 
     return env

@@ -34,22 +34,10 @@ class PeriodicEvalCallback(BaseCallback):
 
 def train():
 
-    # 1. Instantiate the PettingZoo environment
-    env = make_env()
-    # env = VecTransposeImage(env)  # (VecEnv wrapper to handle image observations)
-
-    # 2. Wrap for compatibility (no need)
-    # SB3 expects a single-agent Gymnasium env. SuperSuit handles the conversion.
-    # env = ss.pettingzoo_env_to_vec_env_v1(env)
-
-    # Concatenate for parallel training (e.g., run 8 games at once)
-    # env = ss.concat_vec_envs_v1(
-    #     env, num_vec_envs=8, num_cpus=0
-    # )
+    env = make_env(num_cpus=8, render=False)
     latest_checkpoint, steps_done = find_latest_checkpoint("models/", "ppo_v1")
     timesteps = 1_000_000
     callback_freq = 50_000
-    # 3. Define the Model due to last checkpoint or from scratch
     if latest_checkpoint:
         print(f"[INFO] Resuming from checkpoint: {latest_checkpoint}")
         print(f"[INFO] Steps already done: {steps_done} / {timesteps}")
