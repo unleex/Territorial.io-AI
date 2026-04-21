@@ -3,6 +3,7 @@ from custom_environment.env.countryClass import country
 from custom_environment.env.gameAI import runAi
 
 
+# TODO: is cycle end even handled??
 class Game:
     def __init__(self, n_players=8, grid_rows=80, grid_columns=80):
 
@@ -30,12 +31,11 @@ class Game:
             row = random.randint(0, self.n_grid_rows - 1)
             col = random.randint(0, self.n_grid_columns - 1)
             # If the tile is already occupied, keep rolling random
-            while self.board[row][col] == 0:
+            while self.board[row][col] != -1:
                 row = random.randint(0, self.n_grid_rows - 1)
                 col = random.randint(0, self.n_grid_columns - 1)
-            temp = dict()
             self.id_to_country[i] = country(
-                i, self.countryColors[i], str(i), attacks=temp
+                i, self.countryColors[i], str(i), attacks=dict()
             )
             self.board[row][col] = i
 

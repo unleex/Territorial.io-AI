@@ -3,6 +3,38 @@ import glob
 import supersuit as ss
 import os
 
+from supersuit.vector import MakeCPUAsyncConstructor
+from supersuit.vector.vector_constructors import vec_env_args
+
+
+def fixed_concat_vec_envs_v1(vec_env, num_vec_envs, num_cpus=0, base_class="gymnasium"):
+    num_cpus = min(num_cpus, num_vec_envs)
+    if num_cpus <= 1:
+        vec_env = MakeCPUAsyncConstructor(num_cpus)(
+            *vec_env_args(vec_env, num_vec_envs)
+        )
+    else:
+        vec_env = MakeCPUAsyncConstructor(num_cpus)(
+            *vec_env_args(vec_env, num_vec_envs),
+            vec_env.observation_space,
+            vec_env.action_space,
+        )
+
+    if base_class == "gymnasium":
+        return vec_env
+    elif base_class == "stable_baselines":
+        from supersuit.vector.sb_vector_wrapper import SBVecEnvWrapper
+
+        return SBVecEnvWrapper(vec_env)
+    elif base_class == "stable_baselines3":
+        from supersuit.vector.sb3_vector_wrapper import SB3VecEnvWrapper
+
+        return SB3VecEnvWrapper(vec_env)
+    else:
+        raise ValueError(
+            "supersuit_vec_env only supports 'gymnasium', 'stable_baselines', and 'stable_baselines3' for its base_class"
+        )
+
 
 def make_env():
     """
@@ -14,8 +46,8 @@ def make_env():
     env = ss.black_death_v3(env)
     env = ss.pettingzoo_env_to_vec_env_v1(env)
 
-    env = ss.concat_vec_envs_v1(
-        env, num_vec_envs=4, num_cpus=0, base_class="stable_baselines3"
+    env = fixed_concat_vec_envs_v1(
+        env, num_vec_envs=8, num_cpus=8, base_class="stable_baselines3"
     )
 
     return env

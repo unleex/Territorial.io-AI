@@ -48,6 +48,7 @@ def train():
     # )
     latest_checkpoint, steps_done = find_latest_checkpoint("models/", "ppo_v1")
     timesteps = 1_000_000
+    callback_freq = 50_000
     # 3. Define the Model due to last checkpoint or from scratch
     if latest_checkpoint:
         print(f"[INFO] Resuming from checkpoint: {latest_checkpoint}")
@@ -74,7 +75,6 @@ def train():
         print("[INFO] Training already complete!")
         return
 
-    callback_freq = 1
     # 4. Setup Callbacks (Save every 50k steps)
     checkpoint_callback = CheckpointCallback(
         save_freq=callback_freq, save_path="models", name_prefix="ppo_v1"
