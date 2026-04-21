@@ -7,7 +7,7 @@ from pettingzoo import ParallelEnv
 from custom_environment.env.game import Game
 from gymnasium import spaces
 
-mock_info = {0: tuple()}
+mock_info = {0: {}}
 import matplotlib.pyplot as plt
 from matplotlib.colors import to_rgb
 import numpy as np
@@ -23,11 +23,13 @@ class CustomEnvironment(ParallelEnv):
         """
         ticks_delta: int (default = 1) how many game ticks to run between agent's decisions'
         """
+        super().__init__()
         self.game: Game
         self.ticks_delta = ticks_delta
         self.id_permutation: np.ndarray
         self.reverse_id_permutation: np.ndarray
         self.agent_id = 0
+        self.render_mode = None
         self.reset()
         self.renderer = GameRenderer(self.game.countryColors)
         self.possible_agents = [0]
@@ -47,7 +49,7 @@ class CustomEnvironment(ParallelEnv):
                 low=0,
                 high=1,
                 shape=obs_shape,
-                dtype=np.integer,  # bool actually
+                dtype=np.float32,
             )
         }
         self.action_spaces = {
@@ -64,11 +66,11 @@ class CustomEnvironment(ParallelEnv):
         shifted = (permuted_board + 1).astype(int)
 
         num_channels = self.game.n_players + 1
-        one_hot = np.eye(num_channels, dtype=bool)[shifted]
+        one_hot = np.eye(num_channels, dtype=np.float32)[shifted]
         # TODO add per-player stats like balance?
         # TODO definitely add cycle data
         # Transpose to (Channels, Height, Width) for PyTorch/CNN compatibility
-        return {0: (one_hot.transpose(2, 0, 1),)}
+        return one_hot.transpose(2, 0, 1)
 
     def reset(
         self, seed: Optional[int] = None, options: Optional[Dict[str, Any]] = None
@@ -107,19 +109,18 @@ class CustomEnvironment(ParallelEnv):
                 self.game, target, commited
             )
         # else target == -1 => wait
-        obs = self.observe(self.agents[0])
-        # log(a/b) = log(a) - log(b). log to make 10 pixels more
+        obs = {0 : self.observe(self.agents[0])}
+        # log to make 10 pixels more
         # important when agent is small than when it is a large empire
         reward = {
-            0: np.log(self.game.id_to_country[self.agent_id].size)
-            - np.log(old_player_size)
+            0: self.game.id_to_country[self.agent_id].size - old_player_size
         }
         self.terminations[0] = (
             self.game.id_to_country[self.agent_id].size == 0
             or len(self.game.id_to_country) == 1
         )
-        if self.terminations[0]:
-            self.agents = []
+        # if self.terminations[0]:
+        #     self.agents = []
         return obs, reward, self.terminations, self.truncations, mock_info
 
     def render(self):
