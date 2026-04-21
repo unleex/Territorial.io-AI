@@ -6,17 +6,14 @@ import os
 import subprocess
 import datetime
 
+
 class GameRenderer:
-    def __init__(self, colors,mode: Literal["show","save"] = "show", log_folder = "logs"):
+    def __init__(self, colors):
         self.colors = colors
         self.fig, self.ax = plt.subplots()
         self.im = None
-        self.mode = mode
         plt.ion()  # Enable interactive mode
         plt.show()
-        self.log_folder = log_folder
-        if not os.path.exists(log_folder):
-            os.makedirs(log_folder)
         self.info_text = self.ax.text(
             1.05,
             0.5,
@@ -62,21 +59,8 @@ class GameRenderer:
         self.info_text.set_text(info_str)
         self.info_text.set_color(target_color)
 
-        # 4. Refresh Canvas
-        if self.mode == "show":
-            self.fig.canvas.draw_idle()
-            self.fig.canvas.flush_events()
-        else:   
-                
-                plt.savefig(self.log_folder + "/file%02d.png" % )
-
-                os.chdir("your_folder")
-                subprocess.call([
-                    'ffmpeg', '-framerate', '8', '-i', 'file%02d.png', '-r', '30', '-pix_fmt', 'yuv420p',
-                    f'{datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")}.mp4'
-                ])
-                for file_name in :
-                    os.remove(file_name)
+        self.fig.canvas.draw_idle()
+        self.fig.canvas.flush_events()
 
     def reset(self):
         """Clears attack info and prepares for a new episode."""

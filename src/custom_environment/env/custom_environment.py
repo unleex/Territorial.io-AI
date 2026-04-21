@@ -126,9 +126,13 @@ class CustomEnvironment(ParallelEnv):
             self.agents = []
         return obs, reward, self.terminations, self.truncations, mock_info
 
-    def render(self, targeted_player=-1, commited=0):
+    def render(self, targeted_player=-1, commited=0, **kwargs):
         self.renderer.update(
-            np.array(self.game.board), self.game.n_players, targeted_player, commited
+            np.array(self.game.board),
+            self.game.n_players,
+            targeted_player,
+            commited,
+            **kwargs,
         )
 
     def observation_space(self, agent):
