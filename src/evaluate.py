@@ -3,7 +3,6 @@ import os
 from matplotlib.colors import to_rgb
 import imageio.v2 as imageio
 from stable_baselines3 import PPO
-
 from utility import find_latest_checkpoint
 from custom_environment.custom_environment_v0 import CustomEnvironment
 
@@ -20,6 +19,7 @@ def evaluate(
     num_games: int = 20,
     log_folder: str = "logs",
     video_log_folder: str | None = None,
+    model: PPO,
 ):
     """
     video_log_folder: if not none, then video will be saved
@@ -28,7 +28,6 @@ def evaluate(
         os.makedirs(video_log_folder, exist_ok=True)
     os.makedirs(log_folder, exist_ok=True)
     env = CustomEnvironment()
-    model = PPO.load(find_latest_checkpoint("models", "ppo_v1")[0])
     episode_returns = []
     writer = None
 
@@ -87,4 +86,9 @@ if __name__ == "__main__":
     # print("\n--- Starting Quantitative Evaluation ---")
     # evaluate(num_episodes=20, render_mode=None)
     print("\n--- Starting Visual Debugging ---")
-    evaluate(num_games=10, video_log_folder=None)
+
+    evaluate(
+        model=PPO.load(find_latest_checkpoint("models", "ppo_v1")[0]),
+        num_games=10,
+        video_log_folder=None,
+    )

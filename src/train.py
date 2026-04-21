@@ -12,6 +12,7 @@ class PeriodicEvalCallback(BaseCallback):
     def __init__(
         self,
         eval_freq: int,
+        model: PPO,
         video_log_folder: str = "logs/videos",
         num_games: int = 5,
     ):
@@ -19,6 +20,7 @@ class PeriodicEvalCallback(BaseCallback):
         self.eval_freq = eval_freq
         self.video_log_folder = video_log_folder
         self.num_games = num_games
+        self.model = model
 
     def _on_step(self) -> bool:
         if self.num_timesteps % self.eval_freq != 0:
@@ -26,6 +28,7 @@ class PeriodicEvalCallback(BaseCallback):
         epoch = self.num_timesteps // self.eval_freq
         print(f"[INFO] Running evaluation at epoch {epoch}")
         evaluate(
+            model=self.model,
             num_games=self.num_games,
             video_log_folder=f"{self.video_log_folder}/epoch {epoch}",
         )
@@ -37,7 +40,8 @@ def train():
     env = make_env(num_cpus=8, render=False)
     latest_checkpoint, steps_done = find_latest_checkpoint("models/", "ppo_v1")
     timesteps = 1_000_000
-    callback_freq = 50_000
+    checkpoint_freq = 50_000
+    eval_freq = 25_000
     if latest_checkpoint:
         print(f"[INFO] Resuming from checkpoint: {latest_checkpoint}")
         print(f"[INFO] Steps already done: {steps_done} / {timesteps}")
@@ -65,10 +69,11 @@ def train():
 
     # 4. Setup Callbacks (Save every 50k steps)
     checkpoint_callback = CheckpointCallback(
-        save_freq=callback_freq, save_path="models", name_prefix="ppo_v1"
+        save_freq=checkpoint_freq, save_path="models", name_prefix="ppo_v1"
     )
     eval_callback = PeriodicEvalCallback(
-        eval_freq=callback_freq,
+        eval_freq=eval_freq,
+        model=model,
         video_log_folder="logs/videos",
         num_games=5,
     )
