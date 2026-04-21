@@ -1,8 +1,12 @@
-README.txt
+README.md
 pyproject.toml
+requirements.txt
+src/evaluate.py
+src/render.py
+src/test_environment.py
 src/train.py
+src/utility.py
 src/custom_environment/custom_environment_v0.py
-src/custom_environment/test.py
 src/custom_environment/env/actions.py
 src/custom_environment/env/app.py
 src/custom_environment/env/buttonClass.py

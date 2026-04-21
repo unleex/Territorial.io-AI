@@ -1,3 +1,10 @@
-gymnasium
 pettingzoo
+gymnasium
+stable-baselines3
+supersuit
+matplotlib
 numpy
+pillow
+tensorboard
+tqdm
+rich

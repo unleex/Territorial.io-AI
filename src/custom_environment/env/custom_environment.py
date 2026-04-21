@@ -95,6 +95,7 @@ class CustomEnvironment(ParallelEnv):
         return {0: self.observe()}, mock_info
 
     def step(self, action: dict[int, Any]):
+        # TODO: add main reward at victory
         if not self.agents:
             return {}, {}, {}, {}, {}
         for _ in range(self.ticks_delta):

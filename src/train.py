@@ -1,9 +1,13 @@
 from utility import make_env, find_latest_checkpoint
 from stable_baselines3 import PPO
 from stable_baselines3.common.callbacks import CheckpointCallback
-
-
+from evaluate import evaluate
+class EvalCallback(CheckpointCallback):
+    def _on_step(self):
+        evaluate(render_mode="human")
+        return super()._on_step()
 def train():
+
     # 1. Instantiate the PettingZoo environment
     env = make_env()
     # env = VecTransposeImage(env)  # (VecEnv wrapper to handle image observations)
@@ -16,8 +20,8 @@ def train():
     # env = ss.concat_vec_envs_v1(
     #     env, num_vec_envs=8, num_cpus=0
     # )
-    latest_checkpoint, steps_done = find_latest_checkpoint("./models/", "ppo_v1")
-    timesteps = 100_000_000
+    latest_checkpoint, steps_done = find_latest_checkpoint("models/", "ppo_v1")
+    timesteps = 1_000_000
     # 3. Define the Model due to last checkpoint or from scratch
     if latest_checkpoint:
         print(f"[INFO] Resuming from checkpoint: {latest_checkpoint}")
@@ -32,11 +36,12 @@ def train():
             verbose=1,
             learning_rate=3e-4,
             n_steps=1024,
-            batch_size=32,
+            batch_size=128,
             n_epochs=10,
             gamma=0.99,
             tensorboard_log="logs/ppo_territorial_tensorboard/",
             policy_kwargs={"normalize_images": False},
+            device="cpu"
         )
 
     if timesteps <= 0:
@@ -45,7 +50,7 @@ def train():
 
     # 4. Setup Callbacks (Save every 50k steps)
     checkpoint_callback = CheckpointCallback(
-        save_freq=50000, save_path="./models/", name_prefix="ppo_v1"
+        save_freq=50000, save_path="models", name_prefix="ppo_v1"
     )
 
     # 5. The Train Loop
