@@ -1,4 +1,6 @@
 import supersuit as ss
+import os
+import glob
 from stable_baselines3 import PPO
 from stable_baselines3.common.callbacks import CheckpointCallback
 from stable_baselines3.common.vec_env import VecTransposeImage
@@ -19,13 +21,31 @@ def make_env():
 
     return env
 
+def find_latest_checkpoint(checkpoint_dir, prefix):
+    """Находит последний сохранённый чекпоинт по номеру шага."""
+    pattern = os.path.join(checkpoint_dir, f"{prefix}_*_steps.zip")
+    files = glob.glob(pattern)
+    if not files:
+        return None, 0
+    # Извлекаем номер шага из имени файла и берём максимальный
+    def extract_step(path):
+        name = os.path.basename(path)           # ppo_v1_300000_steps.zip
+        parts = name.replace(".zip", "").split("_")
+        for part in reversed(parts):
+            if part.isdigit():
+                return int(part)
+        return 0
+    latest = max(files, key=extract_step)
+    steps_done = extract_step(latest)
+    return latest, steps_done
+
 
 def train():
     # 1. Instantiate the PettingZoo environment
     env = make_env()
     # env = VecTransposeImage(env)  # (VecEnv wrapper to handle image observations)
 
-    # 2. Wrap for compatibility
+    # 2. Wrap for compatibility (no need)
     # SB3 expects a single-agent Gymnasium env. SuperSuit handles the conversion.
     # env = ss.pettingzoo_env_to_vec_env_v1(env)
 
@@ -33,22 +53,36 @@ def train():
     # env = ss.concat_vec_envs_v1(
     #     env, num_vec_envs=8, num_cpus=0
     # )
-
-
-
-    # 3. Define the Model
-    # Using CnnPolicy because your observation is (C, H, W)
-    model = PPO(
-        policy="MlpPolicy",
-        env=env,
-        verbose=1,
-        learning_rate=3e-4,
-        n_steps=2048,  # Rollout length
-        batch_size=64,  # Mini-batch size
-        n_epochs=10,  # Optimization epochs per update
-        gamma=0.99,  # Discount factor
-        tensorboard_log="./ppo_territorial_tensorboard/",
+    latest_checkpoint, steps_done = find_latest_checkpoint(
+        "./models/", "ppo_v1"
     )
+
+    # 3. Define the Model due to last checkpoint or from scratch
+    if latest_checkpoint:
+        print(f"[INFO] Resuming from checkpoint: {latest_checkpoint}")
+        print(f"[INFO] Steps already done: {steps_done} / {1_000_000}")
+        model = PPO.load(latest_checkpoint, env=env)
+        remaining = 1_000_000 - steps_done
+    else:
+        print("[INFO] No checkpoint found, starting from scratch.")
+        model = PPO(
+            policy="CnnPolicy",
+            env=env,
+            verbose=1,
+            learning_rate=3e-4,
+            n_steps=1024,
+            batch_size=32,
+            n_epochs=10,
+            gamma=0.99,
+            tensorboard_log="./ppo_territorial_tensorboard/",
+            policy_kwargs={"normalize_images": False},
+        )
+        remaining = 1_000_000
+
+    
+    if remaining <= 0:
+        print("[INFO] Training already complete!")
+        return
 
     # 4. Setup Callbacks (Save every 50k steps)
     checkpoint_callback = CheckpointCallback(
