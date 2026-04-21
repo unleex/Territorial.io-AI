@@ -19,13 +19,13 @@ class CustomEnvironment(ParallelEnv):
         "name": "custom_environment_v0",
     }
 
-    def __init__(self, ticks_delta: int = 1):
+    def __init__(self):
         """
         ticks_delta: int (default = 1) how many game ticks to run between agent's decisions'
         """
         super().__init__()
         self.game: Game
-        self.ticks_delta = ticks_delta
+        self.ticks_delta = 1  # FIXME: too low. find optimal
         self.id_permutation: np.ndarray
         self.reverse_id_permutation: np.ndarray
         self.agent_id = 0
@@ -93,7 +93,6 @@ class CustomEnvironment(ParallelEnv):
         for _ in range(self.ticks_delta):
             self.game.tick()
         # TODO mask out self-attack
-        # TODO advantage reward
         old_player_size = self.game.id_to_country[self.agent_id].size
         target_channel = action[0][0]
         commited_bin = action[0][1]
@@ -109,18 +108,14 @@ class CustomEnvironment(ParallelEnv):
                 self.game, target, commited
             )
         # else target == -1 => wait
-        obs = {0 : self.observe(self.agents[0])}
-        # log to make 10 pixels more
-        # important when agent is small than when it is a large empire
-        reward = {
-            0: self.game.id_to_country[self.agent_id].size - old_player_size
-        }
+        obs = {0: self.observe(self.agents[0])}
+        reward = {0: self.game.id_to_country[self.agent_id].size - old_player_size}
         self.terminations[0] = (
             self.game.id_to_country[self.agent_id].size == 0
             or len(self.game.id_to_country) == 1
         )
-        # if self.terminations[0]:
-        #     self.agents = []
+        if self.terminations[0]:
+            self.agents = []
         return obs, reward, self.terminations, self.truncations, mock_info
 
     def render(self):
