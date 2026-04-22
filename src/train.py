@@ -39,7 +39,7 @@ def train():
 
     env = make_env(num_cpus=8, render=False)
     latest_checkpoint, steps_done = find_latest_checkpoint("models/", "ppo_v1")
-    timesteps = 1_000_000
+    timesteps = 300_000
     checkpoint_freq = 50_000
     eval_freq = 25_000
     if latest_checkpoint:

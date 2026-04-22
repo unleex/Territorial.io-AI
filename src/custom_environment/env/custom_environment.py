@@ -23,13 +23,17 @@ class CustomEnvironment(ParallelEnv):
 
     def _prepare(self):
         self.game = Game()
-        self.id_permutation = np.full(self.game.n_players, -1)
-        self.id_permutation[self.agent_id] = 0
-        others = [i for i in range(self.game.n_players) if i != self.agent_id]
+        # 1 based ids, because neutral is now zero.
+        self.id_permutation = np.full(self.game.n_players + 1, 0)
+        # 1th element is always agent itself
+        self.id_permutation[self.agent_id + 1] = 1
+        # 0th element is always neutral land
+        self.id_permutation[-1 + 1] = 0
+        others = [i + 1 for i in range(self.game.n_players) if i != self.agent_id]
         np.random.shuffle(others)
-        for i, other_player_id in enumerate(others, start=1):
+        for i, other_player_id in enumerate(others, start=2):
             self.id_permutation[other_player_id] = i
-        self.reverse_id_permutation = np.empty(self.game.n_players, dtype=int)
+        self.reverse_id_permutation = np.empty(self.game.n_players + 1, dtype=int)
         for original_id, permuted_id in enumerate(self.id_permutation):
             self.reverse_id_permutation[permuted_id] = original_id
 
@@ -75,14 +79,12 @@ class CustomEnvironment(ParallelEnv):
     def observe(self, _=None):
         board = np.array(self.game.board)
         permuted_board = np.full(board.shape, -1)
-
+        # go from -1 (neutral) to n - 1 (last id)
         for original_id, new_id in enumerate(self.id_permutation):
-            permuted_board[board == original_id] = new_id
-        # shift to range [0, n_players]
-        shifted = (permuted_board + 1).astype(int)
+            permuted_board[board == (original_id - 1)] = new_id
 
         num_channels = self.game.n_players + 1
-        one_hot = np.eye(num_channels, dtype=np.float32)[shifted]
+        one_hot = np.eye(num_channels, dtype=np.float32)[permuted_board]
         # TODO add per-player stats like balance?
         # TODO definitely add cycle data
         # Transpose to (Channels, Height, Width) for PyTorch/CNN compatibility
@@ -105,19 +107,15 @@ class CustomEnvironment(ParallelEnv):
             self.game.tick()
         # TODO mask out self-attack
         old_player_size = self.game.id_to_country[self.agent_id].size
-        target_channel = action[0][0]
+        # 0 is neutral, others are agents
+        target = action[0][0]
         commited_bin = action[0][1]
-        commited = commited_bin / 100.0  # Convert 0..10 to 0.0..1.0
-
-        if target_channel == 0:  # neutral land
-            target = -1
-        else:
-            target = self.reverse_id_permutation[target_channel - 1]
-
-        if target >= 0:  # attacked smb
-            self.game.id_to_country[self.agent_id].attackInit(
-                self.game, target, commited
-            )
+        commited = (
+            self.game.id_to_country[self.agent_id].money * commited_bin / 10.0
+        )  # Convert 0..10 to 0.0..1.0
+        # shift to original [-1, n - 1]
+        target = self.reverse_id_permutation[target] - 1
+        self.game.id_to_country[self.agent_id].attackInit(self.game, target, commited)
         # else target == -1 => wait
         obs = {0: self.observe(self.agents[0])}
         reward = {0: self.game.id_to_country[self.agent_id].size - old_player_size}
