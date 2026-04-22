@@ -23,19 +23,34 @@ class CustomEnvironment(ParallelEnv):
 
     def _prepare(self):
         self.game = Game()
-        # 1 based ids, because neutral is now zero.
-        self.id_permutation = np.full(self.game.n_players + 1, 0)
-        # 1th element is always agent itself
-        self.id_permutation[self.agent_id + 1] = 1
-        # 0th element is always neutral land
-        self.id_permutation[-1 + 1] = 0
-        others = [i + 1 for i in range(self.game.n_players) if i != self.agent_id]
+        neutral_original_id = -1
+        neutral_perm_index = 0
+        agent_perm_index = 1
+
+        # Maps original ids in [-1, n_players - 1] to [0, n_players].
+        # Array index for original_id is (original_id + 1).
+        self.id_permutation = np.empty(self.game.n_players + 1, dtype=int)
+        self.id_permutation[neutral_original_id + 1] = neutral_perm_index
+        self.id_permutation[self.agent_id + 1] = agent_perm_index
+
+        others = [
+            player_id + 1
+            for player_id in range(self.game.n_players)
+            if player_id != self.agent_id
+        ]
         np.random.shuffle(others)
-        for i, other_player_id in enumerate(others, start=2):
-            self.id_permutation[other_player_id] = i
+        for perm_index, other_player_array_idx in enumerate(others, start=2):
+            self.id_permutation[other_player_array_idx] = perm_index
+
         self.reverse_id_permutation = np.empty(self.game.n_players + 1, dtype=int)
         for original_id, permuted_id in enumerate(self.id_permutation):
             self.reverse_id_permutation[permuted_id] = original_id
+
+    def permute_id(self, original_id: int) -> int:
+        return int(self.id_permutation[original_id + 1])
+
+    def unpermute_id(self, permuted_id: int) -> int:
+        return int(self.reverse_id_permutation[permuted_id] - 1)
 
     def __init__(self, rendering=True):
         """
@@ -79,9 +94,8 @@ class CustomEnvironment(ParallelEnv):
     def observe(self, _=None):
         board = np.array(self.game.board)
         permuted_board = np.full(board.shape, -1)
-        # go from -1 (neutral) to n - 1 (last id)
-        for original_id, new_id in enumerate(self.id_permutation):
-            permuted_board[board == (original_id - 1)] = new_id
+        for original_id in range(-1, self.game.n_players):
+            permuted_board[board == original_id] = self.permute_id(original_id)
 
         num_channels = self.game.n_players + 1
         one_hot = np.eye(num_channels, dtype=np.float32)[permuted_board]
@@ -113,8 +127,7 @@ class CustomEnvironment(ParallelEnv):
         commited = (
             self.game.id_to_country[self.agent_id].money * commited_bin / 10.0
         )  # Convert 0..10 to 0.0..1.0
-        # shift to original [-1, n - 1]
-        target = self.reverse_id_permutation[target] - 1
+        target = self.unpermute_id(target)
         self.game.id_to_country[self.agent_id].attackInit(self.game, target, commited)
         # else target == -1 => wait
         obs = {0: self.observe(self.agents[0])}

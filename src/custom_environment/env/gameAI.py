@@ -7,6 +7,7 @@ if TYPE_CHECKING:
 
 
 # target = id of country that the function is finding neighbours for
+# TODO: optimize to O(n)
 def findNeighbours(game: "Game", target):
     d = dict()
     for i in range(len(game.board)):
