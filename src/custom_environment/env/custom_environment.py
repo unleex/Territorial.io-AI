@@ -15,7 +15,7 @@ from matplotlib.colors import to_rgb
 import numpy as np
 
 
-# TODO multiple agents. for simplicity, now let's fit to single agent fitting to algorithmic baseline
+# TODO multiple agents. For simplicity, now let's fit to single agent fitting to algorithmic baseline
 class CustomEnvironment(ParallelEnv):
     metadata = {
         "name": "custom_environment_v0",
@@ -101,6 +101,7 @@ class CustomEnvironment(ParallelEnv):
         one_hot = np.eye(num_channels, dtype=np.float32)[permuted_board]
         # TODO add per-player stats like balance?
         # TODO definitely add cycle data
+
         # Transpose to (Channels, Height, Width) for PyTorch/CNN compatibility
         return one_hot.transpose(2, 0, 1)
 
@@ -114,7 +115,6 @@ class CustomEnvironment(ParallelEnv):
         return {0: self.observe()}, mock_info
 
     def step(self, action: dict[int, Any]):
-        # TODO: add main reward at victory
         if not self.agents:
             return {}, {}, {}, {}, {}
         for _ in range(self.ticks_delta):
@@ -131,11 +131,17 @@ class CustomEnvironment(ParallelEnv):
         self.game.id_to_country[self.agent_id].attackInit(self.game, target, commited)
         # else target == -1 => wait
         obs = {0: self.observe(self.agents[0])}
-        reward = {0: self.game.id_to_country[self.agent_id].size - old_player_size}
+        reward = {0: (self.game.id_to_country[self.agent_id].size - old_player_size) / (self.game.n_grid_rows * self.game.n_grid_columns)}
         self.terminations[0] = (
             self.game.id_to_country[self.agent_id].size == 0
             or len(self.game.id_to_country) == 1
         )
+        if self.terminations[0]:
+            if self.game.id_to_country[self.agent_id].size > 0:
+                reward[0] += 10
+            else:
+                reward[0] -= 10 * ((self.game.n_grid_rows * self.game.n_grid_columns) - self.game.id_to_country[0].size) / (self.game.n_grid_rows * self.game.n_grid_columns)  # Defeat penalty normalized
+
         if self.terminations[0]:
             self.agents = []
         return obs, reward, self.terminations, self.truncations, mock_info
