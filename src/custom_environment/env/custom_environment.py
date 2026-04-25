@@ -115,7 +115,7 @@ class CustomEnvironment(ParallelEnv):
             self.renderer.reset()
         return {0: self.observe()}, mock_info
 
-    def get_action_mask(self):
+    def get_action_mask(self, agent=None):
         action_mask = (
             np.zeros(self.game.n_players + 1, dtype=np.int8),
             np.ones(11, dtype=np.int8),
@@ -141,7 +141,12 @@ class CustomEnvironment(ParallelEnv):
         target = self.unpermute_id(target)
         self.game.id_to_country[self.agent_id].attackInit(self.game, target, commited)
         # else target == -1 => wait
-        obs = {0: self.observe(self.agents[0])}
+        obs = {
+            0: {
+                "observation": self.observe(self.agents[0]),
+                "action_mask": self.get_action_mask(),
+            }
+        }
         reward = {
             0: (self.game.id_to_country[self.agent_id].size - old_player_size)
             / (self.game.n_grid_rows * self.game.n_grid_columns)
