@@ -36,6 +36,33 @@ def fixed_concat_vec_envs_v1(vec_env, num_vec_envs, num_cpus=0, base_class="gymn
         )
 
 
+# XXX: replace the corresponding method of MarkovVectorEnv with thing below
+"""
+def concat_obs(self, obs_dict):
+    obs_list = []
+    for i, agent in enumerate(self.par_env.possible_agents):
+        if agent not in obs_dict:
+            raise AssertionError(
+                "environment has agent death. Not allowed for pettingzoo_env_to_vec_env_v1 unless black_death is True"
+            )
+        if isinstance(obs_dict[agent], dict) and "action_mask" in obs_dict[agent]:
+            try:
+                obs_list.append(obs_dict[agent]["observation"])
+            except Exception as e:
+                print("THIS IS INSIDE MY WORKAROUND FOR ACTION MASKING!!!")
+                raise e
+            continue
+        obs_list.append(obs_dict[agent])
+
+    return concatenate(
+        self.observation_space,
+        obs_list,
+        create_empty_array(self.observation_space, self.num_envs),
+    )
+"""
+
+
+# TODO: frame_stack_v1 isn't default???
 def make_env(num_cpus: int, render=True):
     """
     Factory: AEC → Parallel → VecEnv pipeline.

@@ -8,6 +8,7 @@ from pettingzoo.utils.env import AgentID, ObsDict, ActionDict
 from pettingzoo import ParallelEnv
 from custom_environment.env.game import Game
 from gymnasium import spaces
+from custom_environment.env.gameFuncs import findNeighbours
 
 mock_info = {0: {}}
 import matplotlib.pyplot as plt
@@ -114,6 +115,16 @@ class CustomEnvironment(ParallelEnv):
             self.renderer.reset()
         return {0: self.observe()}, mock_info
 
+    def get_action_mask(self):
+        action_mask = (
+            np.zeros(self.game.n_players + 1, dtype=np.int8),
+            np.ones(11, dtype=np.int8),
+        )
+        neighbors = findNeighbours(self.game, 0)
+        for neigh in neighbors:
+            action_mask[0][self.permute_id(neigh)] = 1
+        return action_mask
+
     def step(self, action: dict[int, Any]):
         if not self.agents:
             return {}, {}, {}, {}, {}
@@ -131,7 +142,10 @@ class CustomEnvironment(ParallelEnv):
         self.game.id_to_country[self.agent_id].attackInit(self.game, target, commited)
         # else target == -1 => wait
         obs = {0: self.observe(self.agents[0])}
-        reward = {0: (self.game.id_to_country[self.agent_id].size - old_player_size) / (self.game.n_grid_rows * self.game.n_grid_columns)}
+        reward = {
+            0: (self.game.id_to_country[self.agent_id].size - old_player_size)
+            / (self.game.n_grid_rows * self.game.n_grid_columns)
+        }
         self.terminations[0] = (
             self.game.id_to_country[self.agent_id].size == 0
             or len(self.game.id_to_country) == 1
@@ -140,7 +154,14 @@ class CustomEnvironment(ParallelEnv):
             if self.game.id_to_country[self.agent_id].size > 0:
                 reward[0] += 10
             else:
-                reward[0] -= 10 * ((self.game.n_grid_rows * self.game.n_grid_columns) - self.game.id_to_country[0].size) / (self.game.n_grid_rows * self.game.n_grid_columns)  # Defeat penalty normalized
+                reward[0] -= (
+                    10
+                    * (
+                        (self.game.n_grid_rows * self.game.n_grid_columns)
+                        - self.game.id_to_country[0].size
+                    )
+                    / (self.game.n_grid_rows * self.game.n_grid_columns)
+                )  # Defeat penalty normalized
 
         if self.terminations[0]:
             self.agents = []
