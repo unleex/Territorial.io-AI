@@ -1,5 +1,5 @@
 from utility import make_env, find_latest_checkpoint
-from stable_baselines3 import PPO
+from sb3_contrib import MaskablePPO
 from stable_baselines3.common.callbacks import (
     BaseCallback,
     CallbackList,
@@ -12,7 +12,7 @@ class PeriodicEvalCallback(BaseCallback):
     def __init__(
         self,
         eval_freq: int,
-        model: PPO,
+        model: MaskablePPO,
         video_log_folder: str = "logs/videos",
         num_games: int = 5,
     ):
@@ -36,8 +36,7 @@ class PeriodicEvalCallback(BaseCallback):
 
 
 def train():
-
-    env = make_env(num_cpus=8, render=False)
+    env = make_env(num_cpus=1, render=False)
     latest_checkpoint, steps_done = find_latest_checkpoint("models/", "ppo_v1")
     timesteps = 300_000
     checkpoint_freq = 50_000
@@ -45,11 +44,11 @@ def train():
     if latest_checkpoint:
         print(f"[INFO] Resuming from checkpoint: {latest_checkpoint}")
         print(f"[INFO] Steps already done: {steps_done} / {timesteps}")
-        model = PPO.load(latest_checkpoint, env=env)
+        model = MaskablePPO.load(latest_checkpoint, env=env)
         timesteps -= steps_done
     else:
         print("[INFO] No checkpoint found, starting from scratch.")
-        model = PPO(
+        model = MaskablePPO(
             policy="CnnPolicy",
             env=env,
             verbose=1,

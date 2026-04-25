@@ -1,5 +1,7 @@
 from multiprocessing.spawn import prepare
 
+from sb3_contrib.common.envs import InvalidActionEnvMultiDiscrete
+
 from render import GameRenderer
 import numpy as np
 import numpy.typing as npt
@@ -8,6 +10,7 @@ from pettingzoo.utils.env import AgentID, ObsDict, ActionDict
 from pettingzoo import ParallelEnv
 from custom_environment.env.game import Game
 from gymnasium import spaces
+from custom_environment.env.gameFuncs import findNeighbours
 
 mock_info = {0: {}}
 import matplotlib.pyplot as plt
@@ -56,7 +59,7 @@ class CustomEnvironment(ParallelEnv):
         """
         ticks_delta: int (default = 1) how many game ticks to run between agent's decisions'
         """
-        super().__init__()
+        super(ParallelEnv).__init__()
         self.game: Game
         self.ticks_delta = 5
         self.id_permutation: np.ndarray
@@ -89,7 +92,7 @@ class CustomEnvironment(ParallelEnv):
         }
         self.action_spaces = {
             0: spaces.MultiDiscrete([self.game.n_players + 1, 11])
-        }  # who to attack (or stall) + amount of troops (0%, 10%, 20%, ...)
+        }  # who to attack + amount of troops (0%, 10%, 20%, ...)
 
     def observe(self, _=None):
         board = np.array(self.game.board)
@@ -103,6 +106,16 @@ class CustomEnvironment(ParallelEnv):
         # TODO definitely add cycle data
         # Transpose to (Channels, Height, Width) for PyTorch/CNN compatibility
         return one_hot.transpose(2, 0, 1)
+
+    def get_action_mask(self):
+        action_mask = [
+            np.zeros(self.game.n_players + 1, dtype=bool),
+            np.ones(11, dtype=bool),
+        ]
+        neighbors = findNeighbours(self.game, 0)
+        for neigh in neighbors:
+            action_mask[0][self.permute_id(neigh)] = 1
+        return action_mask
 
     def reset(
         self, seed: Optional[int] = None, options: Optional[Dict[str, Any]] = None
@@ -130,7 +143,12 @@ class CustomEnvironment(ParallelEnv):
         target = self.unpermute_id(target)
         self.game.id_to_country[self.agent_id].attackInit(self.game, target, commited)
         # else target == -1 => wait
-        obs = {0: self.observe(self.agents[0])}
+        obs = {
+            0: {
+                "observation": self.observe(self.agents[0]),
+                "action_mask": self.get_action_mask(),
+            }
+        }
         reward = {0: self.game.id_to_country[self.agent_id].size - old_player_size}
         self.terminations[0] = (
             self.game.id_to_country[self.agent_id].size == 0
