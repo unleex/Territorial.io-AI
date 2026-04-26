@@ -23,6 +23,7 @@ config = (
         vf_loss_coeff=0.25,
         minibatch_size=64,
         num_epochs=10,
+        model={"custom_model": MODEL_NAME},
     )
     .multi_agent(
         policies={"p0"},
@@ -30,12 +31,8 @@ config = (
     )
     .debugging(log_level="ERROR")
     .framework(framework="torch")
-    .resources(
-        num_cpus_for_main_process=1
-    )  # num_gpus=int(os.environ.get("RLLIB_NUM_GPUS", "0")))
     .api_stack(
         enable_rl_module_and_learner=False,
         enable_env_runner_and_connector_v2=False,
     )
-    .training(model={"custom_model": MODEL_NAME})
 )

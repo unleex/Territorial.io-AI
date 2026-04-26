@@ -54,14 +54,15 @@ from ray.rllib.algorithms.ppo import PPOConfig
 def train():
 
     storage_uri = (Path("~/ray_results") / ENV_NAME).expanduser().resolve().as_uri()
-
+    ray.init(num_cpus=8)
     tune.run(
         "PPO",
         name="PPO",
-        stop={"timesteps_total": 5000000 if not os.environ.get("CI") else 50000},
+        stop={"timesteps_total": 1_000_000},
         checkpoint_freq=10,
         storage_path=storage_uri,
         config=config.to_dict(),
+        restore="~/ray_results/custom_env/PPO/PPO_custom_env_2487a_00000_0_2026-04-26_17-42-26/checkpoint_000019",
     )
 
 
