@@ -3,7 +3,7 @@ import os
 from matplotlib.colors import to_rgb
 import imageio.v2 as imageio
 from stable_baselines3 import PPO
-from utility import find_latest_checkpoint
+from prepare_env import find_latest_checkpoint
 from custom_environment.custom_environment_v0 import CustomEnvironment
 
 

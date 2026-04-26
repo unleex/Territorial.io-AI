@@ -1,18 +1,31 @@
-from utility import make_env, find_latest_checkpoint
-from stable_baselines3 import PPO
+from prepare_env import make_env, find_latest_checkpoint, ENV_NAME
+from sb3_contrib import MaskablePPO
 from stable_baselines3.common.callbacks import (
     BaseCallback,
-    CallbackList,
-    CheckpointCallback,
 )
 from evaluate import evaluate
+from sb3_contrib.common.maskable.policies import MaskableActorCriticPolicy
+from stable_baselines3.common.torch_layers import NatureCNN
+import os
+from pathlib import Path
+
+import ray
+import supersuit as ss
+from ray import tune
+from ray.rllib.algorithms.ppo import PPOConfig
+from ray.rllib.env.wrappers.pettingzoo_env import ParallelPettingZooEnv
+from ray.rllib.models import ModelCatalog
+from ray.rllib.models.torch.torch_modelv2 import TorchModelV2
+from ray.tune.registry import register_env
+from torch import nn
+from config import config
 
 
 class PeriodicEvalCallback(BaseCallback):
     def __init__(
         self,
         eval_freq: int,
-        model: PPO,
+        model: MaskablePPO,
         video_log_folder: str = "logs/videos",
         num_games: int = 5,
     ):
@@ -35,55 +48,21 @@ class PeriodicEvalCallback(BaseCallback):
         return True
 
 
+from ray.rllib.algorithms.ppo import PPOConfig
+
+
 def train():
 
-    env = make_env(num_cpus=8, render=False)
-    latest_checkpoint, steps_done = find_latest_checkpoint("models/", "ppo_v1")
-    timesteps = 300_000
-    checkpoint_freq = 50_000
-    eval_freq = 25_000
-    if latest_checkpoint:
-        print(f"[INFO] Resuming from checkpoint: {latest_checkpoint}")
-        print(f"[INFO] Steps already done: {steps_done} / {timesteps}")
-        model = PPO.load(latest_checkpoint, env=env)
-        timesteps -= steps_done
-    else:
-        print("[INFO] No checkpoint found, starting from scratch.")
-        model = PPO(
-            policy="CnnPolicy",
-            env=env,
-            verbose=1,
-            learning_rate=3e-4,
-            n_steps=1024,
-            batch_size=128,
-            n_epochs=10,
-            gamma=0.99,
-            tensorboard_log="logs/ppo_territorial_tensorboard/",
-            policy_kwargs={"normalize_images": False},
-            device="cpu",
-        )
+    storage_uri = (Path("~/ray_results") / ENV_NAME).expanduser().resolve().as_uri()
 
-    if timesteps <= 0:
-        print("[INFO] Training already complete!")
-        return
-
-    # 4. Setup Callbacks (Save every 50k steps)
-    checkpoint_callback = CheckpointCallback(
-        save_freq=checkpoint_freq, save_path="models", name_prefix="ppo_v1"
+    tune.run(
+        "PPO",
+        name="PPO",
+        stop={"timesteps_total": 5000000 if not os.environ.get("CI") else 50000},
+        checkpoint_freq=10,
+        storage_path=storage_uri,
+        config=config.to_dict(),
     )
-    eval_callback = PeriodicEvalCallback(
-        eval_freq=eval_freq,
-        model=model,
-        video_log_folder="logs/videos",
-        num_games=5,
-    )
-    callbacks = CallbackList([checkpoint_callback, eval_callback])
-
-    # 5. The Train Loop
-    model.learn(total_timesteps=timesteps, callback=callbacks, progress_bar=True)
-
-    # 6. Save Final
-    model.save("ppo_territorial_final")
 
 
 if __name__ == "__main__":

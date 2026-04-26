@@ -5,10 +5,11 @@ import numpy as np
 import numpy.typing as npt
 from typing import Dict, Any, Tuple, List, Optional
 from pettingzoo.utils.env import AgentID, ObsDict, ActionDict
-from pettingzoo import ParallelEnv
+from pettingzoo import ParallelEnv, AECEnv
 from custom_environment.env.game import Game
 from gymnasium import spaces
 from custom_environment.env.gameFuncs import findNeighbours
+from gymnasium import Env
 
 mock_info = {0: {}}
 import matplotlib.pyplot as plt
@@ -21,31 +22,6 @@ class CustomEnvironment(ParallelEnv):
     metadata = {
         "name": "custom_environment_v0",
     }
-
-    def _prepare(self):
-        self.game = Game()
-        neutral_original_id = -1
-        neutral_perm_index = 0
-        agent_perm_index = 1
-
-        # Maps original ids in [-1, n_players - 1] to [0, n_players].
-        # Array index for original_id is (original_id + 1).
-        self.id_permutation = np.empty(self.game.n_players + 1, dtype=int)
-        self.id_permutation[neutral_original_id + 1] = neutral_perm_index
-        self.id_permutation[self.agent_id + 1] = agent_perm_index
-
-        others = [
-            player_id + 1
-            for player_id in range(self.game.n_players)
-            if player_id != self.agent_id
-        ]
-        np.random.shuffle(others)
-        for perm_index, other_player_array_idx in enumerate(others, start=2):
-            self.id_permutation[other_player_array_idx] = perm_index
-
-        self.reverse_id_permutation = np.empty(self.game.n_players + 1, dtype=int)
-        for original_id, permuted_id in enumerate(self.id_permutation):
-            self.reverse_id_permutation[permuted_id] = original_id
 
     def permute_id(self, original_id: int) -> int:
         return int(self.id_permutation[original_id + 1])
@@ -80,6 +56,9 @@ class CustomEnvironment(ParallelEnv):
             self.game.n_grid_columns,
         )
 
+        self.action_spaces = {
+            0: spaces.MultiDiscrete([self.game.n_players + 1, 11])
+        }  # who to attack (or stall) + amount of troops (0%, 10%, 20%, ...)
         self.observation_spaces = {
             0: spaces.Box(
                 low=0,
@@ -87,10 +66,44 @@ class CustomEnvironment(ParallelEnv):
                 shape=obs_shape,
                 dtype=np.float32,
             )
+            # Masking version (keep for later):
+            # 0: spaces.Dict(
+            #     {
+            #         "observations": spaces.Box(
+            #             low=0,
+            #             high=1,
+            #             shape=obs_shape,
+            #             dtype=np.float32,
+            #         ),
+            #         "action_mask": spaces.Box(0.0, 1.0, shape=self.action_spaces[0].shape),
+            #     }
+            # )
         }
-        self.action_spaces = {
-            0: spaces.MultiDiscrete([self.game.n_players + 1, 11])
-        }  # who to attack (or stall) + amount of troops (0%, 10%, 20%, ...)
+
+    def _prepare(self):
+        self.game = Game()
+        neutral_original_id = -1
+        neutral_perm_index = 0
+        agent_perm_index = 1
+
+        # Maps original ids in [-1, n_players - 1] to [0, n_players].
+        # Array index for original_id is (original_id + 1).
+        self.id_permutation = np.empty(self.game.n_players + 1, dtype=int)
+        self.id_permutation[neutral_original_id + 1] = neutral_perm_index
+        self.id_permutation[self.agent_id + 1] = agent_perm_index
+
+        others = [
+            player_id + 1
+            for player_id in range(self.game.n_players)
+            if player_id != self.agent_id
+        ]
+        np.random.shuffle(others)
+        for perm_index, other_player_array_idx in enumerate(others, start=2):
+            self.id_permutation[other_player_array_idx] = perm_index
+
+        self.reverse_id_permutation = np.empty(self.game.n_players + 1, dtype=int)
+        for original_id, permuted_id in enumerate(self.id_permutation):
+            self.reverse_id_permutation[permuted_id] = original_id
 
     def observe(self, _=None):
         board = np.array(self.game.board)
@@ -105,6 +118,11 @@ class CustomEnvironment(ParallelEnv):
 
         # Transpose to (Channels, Height, Width) for PyTorch/CNN compatibility
         return one_hot.transpose(2, 0, 1)
+        # Masking version (keep for later):
+        # return {
+        #     "observations": one_hot.transpose(2, 0, 1),
+        #     "action_mask": self.get_action_mask(),
+        # }
 
     def reset(
         self, seed: Optional[int] = None, options: Optional[Dict[str, Any]] = None
@@ -113,7 +131,14 @@ class CustomEnvironment(ParallelEnv):
         self._prepare()
         if self.rendering:
             self.renderer.reset()
-        return {0: self.observe()}, mock_info
+        return {0: self.observe(self.agents[0])}, mock_info
+        # Masking version (keep for later):
+        # return {
+        #     0: {
+        #         "observations": self.observe(self.agents[0]),
+        #         "action_mask": self.get_action_mask(),
+        #     }
+        # }, mock_info
 
     def get_action_mask(self, agent=None):
         action_mask = (
@@ -141,12 +166,14 @@ class CustomEnvironment(ParallelEnv):
         target = self.unpermute_id(target)
         self.game.id_to_country[self.agent_id].attackInit(self.game, target, commited)
         # else target == -1 => wait
-        obs = {
-            0: {
-                "observation": self.observe(self.agents[0]),
-                "action_mask": self.get_action_mask(),
-            }
-        }
+        obs = {0: self.observe(self.agents[0])}
+        # Masking version (keep for later):
+        # obs = {
+        #     0: {
+        #         "observations": self.observe(self.agents[0]),
+        #         "action_mask": self.get_action_mask(),
+        #     }
+        # }
         reward = {
             0: (self.game.id_to_country[self.agent_id].size - old_player_size)
             / (self.game.n_grid_rows * self.game.n_grid_columns)
