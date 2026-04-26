@@ -50,7 +50,7 @@ def train():
     else:
         print("[INFO] No checkpoint found, starting from scratch.")
         model = PPO(
-            policy="CnnPolicy",
+            policy="MultiInputPolicy",
             env=env,
             verbose=1,
             learning_rate=3e-4,

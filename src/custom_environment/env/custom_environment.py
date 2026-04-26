@@ -73,8 +73,10 @@ class CustomEnvironment(ParallelEnv):
         self.truncations = {0: False}
         self.reward = 0.0
         # map of one-hot vectors (each player + neutral)
+        self.n_board_channels = self.game.n_players + 1
+        self.n_stats_channels = self.game.n_players * 2
         obs_shape = (
-            self.game.n_players + 1,
+            self.n_board_channels + self.n_stats_channels,
             self.game.n_grid_rows,
             self.game.n_grid_columns,
         )
@@ -102,8 +104,28 @@ class CustomEnvironment(ParallelEnv):
         # TODO add per-player stats like balance?
         # TODO definitely add cycle data
 
-        # Transpose to (Channels, Height, Width) for PyTorch/CNN compatibility
-        return one_hot.transpose(2, 0, 1)
+        stats = np.zeros(self.n_stats_channels, dtype=np.float32)
+        for perm_idx in range(1, self.game.n_players + 1):
+            original_id = self.unpermute_id(perm_idx)
+            stat_idx = perm_idx - 1
+            if original_id in self.game.id_to_country:
+                c = self.game.id_to_country[original_id]
+                max_money = max(c.size * 1500, 1)
+                stats[stat_idx] = float(np.clip(c.money / max_money, 0.0, 1.0))
+                stats[self.game.n_players + stat_idx] = c.size / self.game.n_grid_rows / self.game.n_grid_columns 
+            # else: player is dead → stays 0.0
+            else:
+                stats[stat_idx] = 0.0
+                stats[self.game.n_players + stat_idx] = 0.0
+ 
+        # Broadcast (n_stats,) → (H, W, n_stats) constant channels
+        stats_channels = np.broadcast_to(
+            stats[np.newaxis, np.newaxis, :],
+            (self.game.n_grid_rows, self.game.n_grid_columns, self.n_stats_channels),
+        ).astype(np.float32)
+ 
+        full_obs = np.concatenate([one_hot, stats_channels], axis=2)  # (H, W, C)
+        return full_obs.transpose(2, 0, 1)  # (C, H, W)
 
     def reset(
         self, seed: Optional[int] = None, options: Optional[Dict[str, Any]] = None
