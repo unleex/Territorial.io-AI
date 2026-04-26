@@ -55,7 +55,7 @@ class CustomEnvironment(ParallelEnv):
             self.game.n_grid_rows,
             self.game.n_grid_columns,
         )
-
+        stats_shape = (self.n_stats,)
         self.n_targets = self.game.n_players + 1
         self.n_commit_bins = 11
         self.action_spaces = {
@@ -68,6 +68,12 @@ class CustomEnvironment(ParallelEnv):
                         low=0,
                         high=1,
                         shape=obs_shape,
+                        dtype=np.float32,
+                    ),
+                    "stats": spaces.Box(
+                        low=0.0,
+                        high=1.0,
+                        shape=stats_shape,
                         dtype=np.float32,
                     ),
                     "action_mask": spaces.Box(
@@ -118,6 +124,27 @@ class CustomEnvironment(ParallelEnv):
 
         # Transpose to (Channels, Height, Width) for PyTorch/CNN compatibility
         return one_hot.transpose(2, 0, 1)
+    
+    def compute_stats(self) -> np.ndarray:
+        total_tiles = self.game.n_grid_rows * self.game.n_grid_columns
+        stats = np.zeros(self.n_stats, dtype=np.float32)
+ 
+        for perm_idx in range(1, self.game.n_players + 1):
+            original_id = self.unpermute_id(perm_idx)
+            stat_idx = perm_idx - 1  # 0-based position in the stats vector
+ 
+            if original_id in self.game.id_to_country:
+                c = self.game.id_to_country[original_id]
+                # money cap = size * 1500 (see countryClass.updateMoney)
+                max_money = max(c.size * 1500, 1)
+                stats[stat_idx] = float(np.clip(c.money / max_money, 0.0, 1.0))
+                stats[self.game.n_players + stat_idx] = c.size / total_tiles
+            # else: player is dead → stays 0.0
+            else:
+                stats[stat_idx] = 0.0
+                stats[self.game.n_players + stat_idx] = 0.0
+ 
+        return stats
 
     def reset(
         self, seed: Optional[int] = None, options: Optional[Dict[str, Any]] = None
