@@ -56,28 +56,28 @@ class CustomEnvironment(ParallelEnv):
             self.game.n_grid_columns,
         )
 
-        self.n_targets = self.game.n_players + 1
-        self.n_commit_bins = 11
         self.action_spaces = {
             0: spaces.MultiDiscrete([self.game.n_players + 1, 11])
         }  # who to attack (or stall) + amount of troops (0%, 10%, 20%, ...)
         self.observation_spaces = {
-            0: spaces.Dict(
-                {
-                    "observations": spaces.Box(
-                        low=0,
-                        high=1,
-                        shape=obs_shape,
-                        dtype=np.float32,
-                    ),
-                    "action_mask": spaces.Box(
-                        low=0.0,
-                        high=1.0,
-                        shape=(self.n_targets + self.n_commit_bins,),
-                        dtype=np.float32,
-                    ),
-                }
+            0: spaces.Box(
+                low=0,
+                high=1,
+                shape=obs_shape,
+                dtype=np.float32,
             )
+            # Masking version (keep for later):
+            # 0: spaces.Dict(
+            #     {
+            #         "observations": spaces.Box(
+            #             low=0,
+            #             high=1,
+            #             shape=obs_shape,
+            #             dtype=np.float32,
+            #         ),
+            #         "action_mask": spaces.Box(0.0, 1.0, shape=self.action_spaces[0].shape),
+            #     }
+            # )
         }
 
     def _prepare(self):
@@ -118,6 +118,11 @@ class CustomEnvironment(ParallelEnv):
 
         # Transpose to (Channels, Height, Width) for PyTorch/CNN compatibility
         return one_hot.transpose(2, 0, 1)
+        # Masking version (keep for later):
+        # return {
+        #     "observations": one_hot.transpose(2, 0, 1),
+        #     "action_mask": self.get_action_mask(),
+        # }
 
     def reset(
         self, seed: Optional[int] = None, options: Optional[Dict[str, Any]] = None
