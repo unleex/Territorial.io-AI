@@ -55,7 +55,7 @@ class CustomEnvironment(ParallelEnv):
             self.game.n_grid_rows,
             self.game.n_grid_columns,
         )
-        stats_shape = (self.n_stats,)
+
         self.n_targets = self.game.n_players + 1
         self.n_commit_bins = 11
         self.action_spaces = {
@@ -68,12 +68,6 @@ class CustomEnvironment(ParallelEnv):
                         low=0,
                         high=1,
                         shape=obs_shape,
-                        dtype=np.float32,
-                    ),
-                    "stats": spaces.Box(
-                        low=0.0,
-                        high=1.0,
-                        shape=stats_shape,
                         dtype=np.float32,
                     ),
                     "action_mask": spaces.Box(
@@ -124,27 +118,6 @@ class CustomEnvironment(ParallelEnv):
 
         # Transpose to (Channels, Height, Width) for PyTorch/CNN compatibility
         return one_hot.transpose(2, 0, 1)
-    
-    def compute_stats(self) -> np.ndarray:
-        total_tiles = self.game.n_grid_rows * self.game.n_grid_columns
-        stats = np.zeros(self.n_stats, dtype=np.float32)
- 
-        for perm_idx in range(1, self.game.n_players + 1):
-            original_id = self.unpermute_id(perm_idx)
-            stat_idx = perm_idx - 1  # 0-based position in the stats vector
- 
-            if original_id in self.game.id_to_country:
-                c = self.game.id_to_country[original_id]
-                # money cap = size * 1500 (see countryClass.updateMoney)
-                max_money = max(c.size * 1500, 1)
-                stats[stat_idx] = float(np.clip(c.money / max_money, 0.0, 1.0))
-                stats[self.game.n_players + stat_idx] = c.size / total_tiles
-            # else: player is dead → stays 0.0
-            else:
-                stats[stat_idx] = 0.0
-                stats[self.game.n_players + stat_idx] = 0.0
- 
-        return stats
 
     def reset(
         self, seed: Optional[int] = None, options: Optional[Dict[str, Any]] = None
@@ -153,12 +126,14 @@ class CustomEnvironment(ParallelEnv):
         self._prepare()
         if self.rendering:
             self.renderer.reset()
-        return {
-            0: {
-                "observations": self.observe(self.agents[0]),
-                "action_mask": self.get_action_mask(),
-            }
-        }, mock_info
+        return {0: self.observe(self.agents[0])}, mock_info
+        # Masking version (keep for later):
+        # return {
+        #     0: {
+        #         "observations": self.observe(self.agents[0]),
+        #         "action_mask": self.get_action_mask(),
+        #     }
+        # }, mock_info
 
     def get_action_mask(self, agent=None):
         action_mask = (
@@ -168,11 +143,7 @@ class CustomEnvironment(ParallelEnv):
         neighbors = findNeighbours(self.game, 0)
         for neigh in neighbors:
             action_mask[0][self.permute_id(neigh)] = 1
-        # Keep original per-dimension mask logic, but expose it in the
-        # concatenated format expected by the MultiDiscrete masked model.
-        return np.concatenate(
-            [action_mask[0].astype(np.float32), action_mask[1].astype(np.float32)]
-        )
+        return action_mask
 
     def step(self, action: dict[int, Any]):
         if not self.agents:
@@ -182,20 +153,22 @@ class CustomEnvironment(ParallelEnv):
         # TODO mask out self-attack
         old_player_size = self.game.id_to_country[self.agent_id].size
         # 0 is neutral, others are agents
-        target = int(action[0][0])
-        commited_bin = int(action[0][1])
+        target = action[0][0]
+        commited_bin = action[0][1]
         commited = (
             self.game.id_to_country[self.agent_id].money * commited_bin / 10.0
         )  # Convert 0..10 to 0.0..1.0
         target = self.unpermute_id(target)
         self.game.id_to_country[self.agent_id].attackInit(self.game, target, commited)
-
-        obs = {
-            0: {
-                "observations": self.observe(self.agents[0]),
-                "action_mask": self.get_action_mask(),
-            }
-        }
+        # else target == -1 => wait
+        obs = {0: self.observe(self.agents[0])}
+        # Masking version (keep for later):
+        # obs = {
+        #     0: {
+        #         "observations": self.observe(self.agents[0]),
+        #         "action_mask": self.get_action_mask(),
+        #     }
+        # }
         reward = {
             0: (self.game.id_to_country[self.agent_id].size - old_player_size)
             / (self.game.n_grid_rows * self.game.n_grid_columns)

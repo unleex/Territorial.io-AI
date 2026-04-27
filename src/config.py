@@ -1,7 +1,29 @@
+# from ray.rllib.examples.rl_modules.classes.action_masking_rlm import (
+#     ActionMaskingTorchRLModule,
+# )
+# from ray.rllib.core.rl_module.rl_module import RLModuleSpec
+from ray.rllib.core.rl_module.default_model_config import DefaultModelConfig
+from custom_environment.env.custom_environment import CustomEnvironment
+from prepare_env import make_env, find_latest_checkpoint, ENV_NAME
+from sb3_contrib import MaskablePPO
+from stable_baselines3.common.callbacks import (
+    BaseCallback,
+)
+from evaluate import evaluate
+from sb3_contrib.common.maskable.policies import MaskableActorCriticPolicy
+from stable_baselines3.common.torch_layers import NatureCNN
 import os
+from pathlib import Path
+
+import ray
+import supersuit as ss
+from ray import tune
 from ray.rllib.algorithms.ppo import PPOConfig
-from model import MODEL_NAME
-from prepare_env import ENV_NAME
+from ray.rllib.env.wrappers.pettingzoo_env import ParallelPettingZooEnv
+from ray.rllib.models import ModelCatalog
+from ray.rllib.models.torch.torch_modelv2 import TorchModelV2
+from ray.tune.registry import register_env
+from torch import nn
 
 config = (
     PPOConfig()
@@ -33,9 +55,17 @@ config = (
     .resources(
         num_cpus_for_main_process=1
     )  # num_gpus=int(os.environ.get("RLLIB_NUM_GPUS", "0")))
-    .api_stack(
-        enable_rl_module_and_learner=False,
-        enable_env_runner_and_connector_v2=False,
+    .rl_module(
+        model_config=DefaultModelConfig(
+            # Use explicit filters because [9, 80, 80] has no default auto-CNN config.
+            conv_filters=[
+                [9, 3, 3],  # 1st CNN layer: num_filters, kernel, stride
+                [32, 3, 3],  # 2nd CNN layer
+                [64, 3, 3],  # 3rd CNN layer
+                [128, 3, 3],  # 4th CNN layer
+            ],
+        ),
+        # Masking version (keep for later):
+        # rl_module_spec=RLModuleSpec(module_class=ActionMaskingTorchRLModule),
     )
-    .training(model={"custom_model": MODEL_NAME})
 )
