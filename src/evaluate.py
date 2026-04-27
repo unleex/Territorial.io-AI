@@ -2,8 +2,6 @@ import numpy as np
 import os
 from matplotlib.colors import to_rgb
 import imageio.v2 as imageio
-from stable_baselines3 import PPO
-from prepare_env import find_latest_checkpoint
 from custom_environment.custom_environment_v0 import CustomEnvironment
 
 
@@ -19,7 +17,7 @@ def evaluate(
     num_games: int = 20,
     log_folder: str = "logs",
     video_log_folder: str | None = None,
-    model: PPO,
+    model,
 ):
     """
     video_log_folder: if not none, then video will be saved
@@ -83,12 +81,10 @@ def evaluate(
 
 
 if __name__ == "__main__":
-    # print("\n--- Starting Quantitative Evaluation ---")
-    # evaluate(num_episodes=20, render_mode=None)
     print("\n--- Starting Visual Debugging ---")
 
     evaluate(
-        model=PPO.load(find_latest_checkpoint("models", "ppo_v1")[0]),
+        model=None,  # TODO: load new RLlib model
         num_games=10,
         video_log_folder=None,
     )
