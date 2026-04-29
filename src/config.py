@@ -45,6 +45,7 @@ config = (
         vf_loss_coeff=0.25,
         minibatch_size=64,
         num_epochs=10,
+        model={"custom_model": MODEL_NAME},
     )
     .multi_agent(
         policies={"p0"},
