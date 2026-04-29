@@ -1,29 +1,66 @@
-# from ray.rllib.examples.rl_modules.classes.action_masking_rlm import (
-#     ActionMaskingTorchRLModule,
-# )
-# from ray.rllib.core.rl_module.rl_module import RLModuleSpec
-from ray.rllib.core.rl_module.default_model_config import DefaultModelConfig
-from custom_environment.env.custom_environment import CustomEnvironment
-from prepare_env import make_env, find_latest_checkpoint, ENV_NAME
-from sb3_contrib import MaskablePPO
-from stable_baselines3.common.callbacks import (
-    BaseCallback,
-)
-from evaluate import evaluate
-from sb3_contrib.common.maskable.policies import MaskableActorCriticPolicy
-from stable_baselines3.common.torch_layers import NatureCNN
-import os
-from pathlib import Path
-
-import ray
-import supersuit as ss
-from ray import tune
+import numpy as np
 from ray.rllib.algorithms.ppo import PPOConfig
-from ray.rllib.env.wrappers.pettingzoo_env import ParallelPettingZooEnv
-from ray.rllib.models import ModelCatalog
-from ray.rllib.models.torch.torch_modelv2 import TorchModelV2
-from ray.tune.registry import register_env
-from torch import nn
+from custom_environment.env.custom_environment import CustomEnvironment
+from model import MODEL_NAME
+from prepare_env import ENV_NAME
+from ray.rllib.callbacks.callbacks import RLlibCallback
+from pathlib import Path
+import imageio.v2 as imageio
+from matplotlib.colors import to_rgb
+from ray.rllib.env.env_runner import EnvRunner
+from ray.rllib.env.multi_agent_env import MultiAgentEnvWrapper
+from typing import Optional, Sequence
+from ray.tune import get_context
+
+VIDEO_LOG_DIR = (Path("~/ray_results") / ENV_NAME / "PPO" / "videos").expanduser()
+VIDEO_LOG_DIR.mkdir(exist_ok=True)
+
+
+class VideoCallback(RLlibCallback):
+    @staticmethod
+    def _board_to_rgb(
+        board: np.ndarray, colors: list[str], n_players: int
+    ) -> np.ndarray:
+        img = np.zeros((*board.shape, 3), dtype=np.float32)
+        for i in range(n_players):
+            img[board == i] = to_rgb(colors[i])
+        return (img * 255).astype(np.uint8)
+
+    def __init__(self, env_runner_indices: Optional[Sequence[int]] = None):
+        self._env_runner_indices = env_runner_indices
+
+    def on_episode_start(self, *, episode, **kwargs):
+        episode.user_data["frames"] = []
+
+    def on_episode_step(
+        self,
+        *,
+        base_env: MultiAgentEnvWrapper,
+        worker: EnvRunner,
+        episode,
+        **kwargs,
+    ):
+        if worker.worker_index < worker.config.get("num_env_runners", 0):
+            return
+        base_env: CustomEnvironment = base_env._unwrapped_env.par_env
+        frame = self._board_to_rgb(
+            np.array(base_env.game.board),
+            base_env.game.countryColors,
+            base_env.game.n_players,
+        )
+        episode.user_data["frames"].append(frame)
+
+    def on_episode_end(self, *, worker: EnvRunner, episode, **kwargs):
+        if worker.worker_index < worker.config.get("num_env_runners", 0):
+            return
+        log_dir = VIDEO_LOG_DIR / f"trial{get_context().get_trial_id()}"
+        log_dir.mkdir(exist_ok=True)
+        frames = episode.user_data["frames"]
+        if frames:
+            imageio.mimsave(
+                log_dir / f"episode_{episode.episode_id}.mp4", frames, fps=8
+            )
+
 
 config = (
     PPOConfig()
@@ -53,20 +90,13 @@ config = (
     )
     .debugging(log_level="ERROR")
     .framework(framework="torch")
-    .resources(
-        num_cpus_for_main_process=1
-    )  # num_gpus=int(os.environ.get("RLLIB_NUM_GPUS", "0")))
-    .rl_module(
-        model_config=DefaultModelConfig(
-            # Use explicit filters because [9, 80, 80] has no default auto-CNN config.
-            conv_filters=[
-                [9, 3, 3],  # 1st CNN layer: num_filters, kernel, stride
-                [32, 3, 3],  # 2nd CNN layer
-                [64, 3, 3],  # 3rd CNN layer
-                [128, 3, 3],  # 4th CNN layer
-            ],
-        ),
-        # Masking version (keep for later):
-        # rl_module_spec=RLModuleSpec(module_class=ActionMaskingTorchRLModule),
+    .api_stack(
+        enable_rl_module_and_learner=False,
+        enable_env_runner_and_connector_v2=False,
     )
+    .evaluation(
+        evaluation_interval=15,
+        evaluation_duration=10,
+    )
+    .callbacks(VideoCallback)
 )

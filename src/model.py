@@ -38,9 +38,10 @@ class MultiDiscreteActionMaskModel(TorchModelV2, nn.Module):
         with torch.no_grad():
             dummy = torch.zeros(1, *self._obs_shape, dtype=torch.float32)
             flat_size = self.encoder(dummy).shape[1]
+        stat_size = int(original_space["stats"].shape[0])
 
         self.trunk = nn.Sequential(
-            nn.Linear(flat_size, 512),
+            nn.Linear(flat_size + stat_size, 512),
             nn.ReLU(),
         )
         self.policy_head = nn.Linear(512, num_outputs)
@@ -53,8 +54,13 @@ class MultiDiscreteActionMaskModel(TorchModelV2, nn.Module):
         )
         obs = restored["observations"].float()
         action_mask = restored["action_mask"].float()
+        stats = restored["stats"].float()
 
-        features = self.trunk(self.encoder(obs))
+        obs_trunked = self.encoder(obs)
+
+        combined_features = torch.cat([obs_trunked, stats], dim=1)
+
+        features = self.trunk(combined_features)
         logits = self.policy_head(features)
 
         # MultiDiscrete logits are flattened as [target_logits..., commit_logits...].

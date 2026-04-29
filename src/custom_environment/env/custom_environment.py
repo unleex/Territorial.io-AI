@@ -49,6 +49,7 @@ class CustomEnvironment(ParallelEnv):
         self.terminations = {0: False}
         self.truncations = {0: False}
         self.reward = 0.0
+
         # map of one-hot vectors (each player + neutral)
         obs_shape = (
             self.game.n_players + 1,
@@ -58,8 +59,10 @@ class CustomEnvironment(ParallelEnv):
         self.n_stats = self.game.n_players * 2
         stats_shape = (self.n_stats,)
 
+        self.n_commit_bins = 11
+
         self.action_spaces = {
-            0: spaces.MultiDiscrete([self.game.n_players + 1, 11])
+            0: spaces.MultiDiscrete([self.game.n_players + 1, self.n_commit_bins])
         }  # who to attack (or stall) + amount of troops (0%, 10%, 20%, ...)
         self.observation_spaces = {
             # No masking version (keep for later):
@@ -84,7 +87,12 @@ class CustomEnvironment(ParallelEnv):
                         shape=stats_shape,
                         dtype=np.float32,
                     ),
-                    "action_mask": spaces.Box(0.0, 1.0, shape=self.action_spaces[0].shape),
+                    "action_mask": spaces.Box(
+                        low=0.0,
+                        high=1.0,
+                        shape=(self.game.n_players + 1 + self.n_commit_bins,),
+                        dtype=np.float32,
+                    ),
                 }
             )
         }
@@ -125,7 +133,7 @@ class CustomEnvironment(ParallelEnv):
         # TODO add per-player stats like balance?
         # TODO definitely add cycle data
         stats = np.zeros(self.n_stats, dtype=np.float32)
-        for perm_idx in range(1, self.game.n_players):
+        for perm_idx in range(1, self.game.n_players + 1):
             original_id = self.unpermute_id(perm_idx)
             stat_idx = perm_idx - 1
  
@@ -156,23 +164,15 @@ class CustomEnvironment(ParallelEnv):
         # No masking version (keep for later):
         # return {0: self.observe(self.agents[0])}, mock_info
         # Masking version (keep for later):
-        return {
-            0: {
-                "observations": self.observe(self.agents[0]),
-                "stats": self.observe(self.agents[0])["stats"],
-                "action_mask": self.get_action_mask(),
-            }
-        }, mock_info
+        return {0: self.observe()}, mock_info
 
     def get_action_mask(self, agent=None):
-        action_mask = (
-            np.zeros(self.game.n_players + 1, dtype=np.int8),
-            np.ones(11, dtype=np.int8),
-        )
+        target_mask = np.zeros(self.game.n_players + 1, dtype=np.float32)
         neighbors = findNeighbours(self.game, 0)
         for neigh in neighbors:
-            action_mask[0][self.permute_id(neigh)] = 1
-        return action_mask
+            target_mask[self.permute_id(neigh)] = 1.0
+        commit_mask = np.ones(self.n_commit_bins, dtype=np.float32)
+        return np.concatenate([target_mask, commit_mask])
 
     def step(self, action: dict[int, Any]):
         if not self.agents:
@@ -194,10 +194,7 @@ class CustomEnvironment(ParallelEnv):
         # obs = {0: self.observe(self.agents[0])}
         # Masking version (keep for later):
         obs = {
-            0: {
-                "observations": self.observe(self.agents[0]),
-                "action_mask": self.get_action_mask(),
-            }
+            0: self.observe(self.agents[0])
         }
         reward = {
             0: (self.game.id_to_country[self.agent_id].size - old_player_size)
