@@ -16,7 +16,10 @@ class MultiDiscreteActionMaskModel(TorchModelV2, nn.Module):
         nn.Module.__init__(self)
 
         original_space = getattr(obs_space, "original_space", obs_space)
-        if hasattr(original_space, "spaces") and "observations" in original_space.spaces:
+        if (
+            hasattr(original_space, "spaces")
+            and "observations" in original_space.spaces
+        ):
             self._obs_shape = original_space["observations"].shape
         else:
             self._obs_shape = obs_space.shape
@@ -45,7 +48,9 @@ class MultiDiscreteActionMaskModel(TorchModelV2, nn.Module):
         self._value_out = None
 
     def forward(self, input_dict, state, seq_lens):
-        restored = restore_original_dimensions(input_dict["obs"], self.obs_space, "torch")
+        restored = restore_original_dimensions(
+            input_dict["obs"], self.obs_space, "torch"
+        )
         obs = restored["observations"].float()
         action_mask = restored["action_mask"].float()
 
