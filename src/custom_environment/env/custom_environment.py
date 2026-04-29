@@ -55,29 +55,38 @@ class CustomEnvironment(ParallelEnv):
             self.game.n_grid_rows,
             self.game.n_grid_columns,
         )
+        self.n_stats = self.game.n_players * 2
+        stats_shape = (self.n_stats,)
 
         self.action_spaces = {
             0: spaces.MultiDiscrete([self.game.n_players + 1, 11])
         }  # who to attack (or stall) + amount of troops (0%, 10%, 20%, ...)
         self.observation_spaces = {
-            0: spaces.Box(
-                low=0,
-                high=1,
-                shape=obs_shape,
-                dtype=np.float32,
-            )
-            # Masking version (keep for later):
-            # 0: spaces.Dict(
-            #     {
-            #         "observations": spaces.Box(
-            #             low=0,
-            #             high=1,
-            #             shape=obs_shape,
-            #             dtype=np.float32,
-            #         ),
-            #         "action_mask": spaces.Box(0.0, 1.0, shape=self.action_spaces[0].shape),
-            #     }
+            # No masking version (keep for later):
+            # 0: spaces.Box(
+            #     low=0,
+            #     high=1,
+            #     shape=obs_shape,
+            #     dtype=np.float32,
             # )
+            # Masking version (keep for later):
+            0: spaces.Dict(
+                {
+                    "observations": spaces.Box(
+                        low=0,
+                        high=1,
+                        shape=obs_shape,
+                        dtype=np.float32,
+                    ),
+                    "stats": spaces.Box(
+                        low=0,
+                        high=1,
+                        shape=stats_shape,
+                        dtype=np.float32,
+                    ),
+                    "action_mask": spaces.Box(0.0, 1.0, shape=self.action_spaces[0].shape),
+                }
+            )
         }
 
     def _prepare(self):
@@ -115,14 +124,27 @@ class CustomEnvironment(ParallelEnv):
         one_hot = np.eye(num_channels, dtype=np.float32)[permuted_board]
         # TODO add per-player stats like balance?
         # TODO definitely add cycle data
+        stats = np.zeros(self.n_stats, dtype=np.float32)
+        for perm_idx in range(1, self.game.n_players):
+            original_id = self.unpermute_id(perm_idx)
+            stat_idx = perm_idx - 1
+ 
+            if original_id in self.game.id_to_country:
+                c = self.game.id_to_country[original_id]
+                max_money = max(c.size * 1500, 1)
+                stats[stat_idx] = float(np.clip(c.money / max_money, 0.0, 1.0))
+                stats[self.game.n_players + stat_idx] = c.size / self.game.n_grid_rows / self.game.n_grid_columns
+            # else: player is dead → stays 0.0
 
         # Transpose to (Channels, Height, Width) for PyTorch/CNN compatibility
-        return one_hot.transpose(2, 0, 1)
+        # No masking version (keep for later):
+        # return one_hot.transpose(2, 0, 1)
         # Masking version (keep for later):
-        # return {
-        #     "observations": one_hot.transpose(2, 0, 1),
-        #     "action_mask": self.get_action_mask(),
-        # }
+        return {
+            "observations": one_hot.transpose(2, 0, 1),
+            "stats": stats,
+            "action_mask": self.get_action_mask(),
+        }
 
     def reset(
         self, seed: Optional[int] = None, options: Optional[Dict[str, Any]] = None
@@ -131,14 +153,16 @@ class CustomEnvironment(ParallelEnv):
         self._prepare()
         if self.rendering:
             self.renderer.reset()
-        return {0: self.observe(self.agents[0])}, mock_info
+        # No masking version (keep for later):
+        # return {0: self.observe(self.agents[0])}, mock_info
         # Masking version (keep for later):
-        # return {
-        #     0: {
-        #         "observations": self.observe(self.agents[0]),
-        #         "action_mask": self.get_action_mask(),
-        #     }
-        # }, mock_info
+        return {
+            0: {
+                "observations": self.observe(self.agents[0]),
+                "stats": self.observe(self.agents[0])["stats"],
+                "action_mask": self.get_action_mask(),
+            }
+        }, mock_info
 
     def get_action_mask(self, agent=None):
         action_mask = (
@@ -166,14 +190,15 @@ class CustomEnvironment(ParallelEnv):
         target = self.unpermute_id(target)
         self.game.id_to_country[self.agent_id].attackInit(self.game, target, commited)
         # else target == -1 => wait
-        obs = {0: self.observe(self.agents[0])}
+        # No masking version (keep for later):
+        # obs = {0: self.observe(self.agents[0])}
         # Masking version (keep for later):
-        # obs = {
-        #     0: {
-        #         "observations": self.observe(self.agents[0]),
-        #         "action_mask": self.get_action_mask(),
-        #     }
-        # }
+        obs = {
+            0: {
+                "observations": self.observe(self.agents[0]),
+                "action_mask": self.get_action_mask(),
+            }
+        }
         reward = {
             0: (self.game.id_to_country[self.agent_id].size - old_player_size)
             / (self.game.n_grid_rows * self.game.n_grid_columns)
