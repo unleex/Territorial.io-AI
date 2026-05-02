@@ -65,14 +65,6 @@ class CustomEnvironment(ParallelEnv):
             0: spaces.MultiDiscrete([self.game.n_players + 1, self.n_commit_bins])
         }  # who to attack (or stall) + amount of troops (0%, 10%, 20%, ...)
         self.observation_spaces = {
-            # No masking version (keep for later):
-            # 0: spaces.Box(
-            #     low=0,
-            #     high=1,
-            #     shape=obs_shape,
-            #     dtype=np.float32,
-            # )
-            # Masking version (keep for later):
             0: spaces.Dict(
                 {
                     "observations": spaces.Box(
@@ -130,24 +122,22 @@ class CustomEnvironment(ParallelEnv):
 
         num_channels = self.game.n_players + 1
         one_hot = np.eye(num_channels, dtype=np.float32)[permuted_board]
-        # TODO add per-player stats like balance?
         # TODO definitely add cycle data
         stats = np.zeros(self.n_stats, dtype=np.float32)
         for perm_idx in range(1, self.game.n_players + 1):
             original_id = self.unpermute_id(perm_idx)
             stat_idx = perm_idx - 1
- 
+
             if original_id in self.game.id_to_country:
                 c = self.game.id_to_country[original_id]
                 max_money = max(c.size * 1500, 1)
                 stats[stat_idx] = float(np.clip(c.money / max_money, 0.0, 1.0))
-                stats[self.game.n_players + stat_idx] = c.size / self.game.n_grid_rows / self.game.n_grid_columns
+                stats[self.game.n_players + stat_idx] = (
+                    c.size / self.game.n_grid_rows / self.game.n_grid_columns
+                )
             # else: player is dead → stays 0.0
 
         # Transpose to (Channels, Height, Width) for PyTorch/CNN compatibility
-        # No masking version (keep for later):
-        # return one_hot.transpose(2, 0, 1)
-        # Masking version (keep for later):
         return {
             "observations": one_hot.transpose(2, 0, 1),
             "stats": stats,
@@ -161,9 +151,6 @@ class CustomEnvironment(ParallelEnv):
         self._prepare()
         if self.rendering:
             self.renderer.reset()
-        # No masking version (keep for later):
-        # return {0: self.observe(self.agents[0])}, mock_info
-        # Masking version (keep for later):
         return {0: self.observe()}, mock_info
 
     def get_action_mask(self, agent=None):
@@ -189,13 +176,7 @@ class CustomEnvironment(ParallelEnv):
         )  # Convert 0..10 to 0.0..1.0
         target = self.unpermute_id(target)
         self.game.id_to_country[self.agent_id].attackInit(self.game, target, commited)
-        # else target == -1 => wait
-        # No masking version (keep for later):
-        # obs = {0: self.observe(self.agents[0])}
-        # Masking version (keep for later):
-        obs = {
-            0: self.observe(self.agents[0])
-        }
+        obs = {0: self.observe(self.agents[0])}
         reward = {
             0: (self.game.id_to_country[self.agent_id].size - old_player_size)
             / (self.game.n_grid_rows * self.game.n_grid_columns)
