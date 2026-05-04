@@ -69,7 +69,7 @@ config = (
         clip_actions=True,
         disable_env_checking=False,
     )
-    .env_runners(num_env_runners=4, rollout_fragment_length=128)
+    .env_runners(num_env_runners=4, rollout_fragment_length=256, num_cpus_per_env_runner=1, num_gpus_per_env_runner=1)
     .training(
         train_batch_size=512,
         lr=2e-5,
@@ -80,7 +80,7 @@ config = (
         grad_clip=None,
         entropy_coeff=0.1,
         vf_loss_coeff=0.25,
-        minibatch_size=64,
+        minibatch_size=256,
         num_epochs=10,
         model={"custom_model": MODEL_NAME},
     )
@@ -90,6 +90,11 @@ config = (
     )
     .debugging(log_level="ERROR")
     .framework(framework="torch")
+    .resources(
+        num_gpus=1,
+        num_cpus_per_worker=1,
+        num_gpus_per_worker=0.25,
+    )
     .api_stack(
         enable_rl_module_and_learner=False,
         enable_env_runner_and_connector_v2=False,
