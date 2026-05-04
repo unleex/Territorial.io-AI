@@ -1,9 +1,4 @@
 from prepare_env import ENV_NAME
-from sb3_contrib import MaskablePPO
-from stable_baselines3.common.callbacks import (
-    BaseCallback,
-)
-from evaluate import evaluate
 from pathlib import Path
 
 import ray
@@ -22,7 +17,6 @@ def train():
         storage_path=storage_uri,
         config=config.to_dict(),
         reuse_actors=True,
-        resources_per_trial={'gpu': 1},
         # restore="~/ray_results/custom_env/PPO/PPO_custom_env_2487a_00000_0_2026-04-26_17-42-26/checkpoint_000019",
     )
 
