@@ -12,7 +12,7 @@ from ray.rllib.env.multi_agent_env import MultiAgentEnvWrapper
 from typing import Optional, Sequence
 from ray.tune import get_context
 
-VIDEO_LOG_DIR = (Path("~/ray_results") / ENV_NAME / "PPO" / "videos").expanduser()
+VIDEO_LOG_DIR = (Path("~/ray_results_new") / ENV_NAME / "PPO" / "videos").expanduser()
 VIDEO_LOG_DIR.mkdir(exist_ok=True)
 
 
@@ -69,15 +69,14 @@ config = (
         clip_actions=True,
         disable_env_checking=False,
     )
-    .env_runners(num_env_runners=4, rollout_fragment_length=256, num_cpus_per_env_runner=1, num_gpus_per_env_runner=1)
     .training(
-        train_batch_size=512,
-        lr=2e-5,
+        train_batch_size=4000,
+        lr=1e-8,
         gamma=0.99,
         lambda_=0.9,
         use_gae=True,
         clip_param=0.4,
-        grad_clip=None,
+        grad_clip=0.5,
         entropy_coeff=0.1,
         vf_loss_coeff=0.25,
         minibatch_size=256,
@@ -92,8 +91,6 @@ config = (
     .framework(framework="torch")
     .resources(
         num_gpus=1,
-        num_cpus_per_worker=1,
-        num_gpus_per_worker=0.25,
     )
     .api_stack(
         enable_rl_module_and_learner=False,
