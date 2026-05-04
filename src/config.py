@@ -13,7 +13,7 @@ from typing import Optional, Sequence
 from ray.tune import get_context
 
 VIDEO_LOG_DIR = (Path("~/ray_results_new") / ENV_NAME / "PPO" / "videos").expanduser()
-VIDEO_LOG_DIR.mkdir(exist_ok=True)
+VIDEO_LOG_DIR.mkdir(exist_ok=True, parents=True)
 
 
 class VideoCallback(RLlibCallback):
