@@ -25,13 +25,10 @@ class VideoCallback(RLlibCallback):
             img[board == i] = to_rgb(colors[i])
         return (img * 255).astype(np.uint8)
 
-    def __init__(
-        self, env_runner_indices: Optional[Sequence[int]] = None, save_freq=100
-    ):
-        self._env_runner_indices = env_runner_indices
+    def __init__(self, save_freq=100):
         self.logdir = VIDEO_LOG_DIR / str(datetime.now().strftime("%Y-%m-%d %H-%M-%S"))
         self.save_freq = save_freq
-        self.logdir.mkdir()
+        self.logdir.mkdir(exist_ok=True)
         self.episode_idx = 0
 
     def on_episode_start(self, *, episode, **kwargs):

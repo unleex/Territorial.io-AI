@@ -15,7 +15,7 @@ config = (
         disable_env_checking=False,
     )
     .training(
-        train_batch_size=1000,
+        train_batch_size=512,
         lr=2e-5,
         gamma=0.99,
         lambda_=0.9,
@@ -34,9 +34,6 @@ config = (
     )
     .debugging(log_level="ERROR")
     .framework(framework="torch")
-    .resources(
-        num_gpus=1,
-    )
     .api_stack(
         enable_rl_module_and_learner=False,
         enable_env_runner_and_connector_v2=False,
@@ -45,5 +42,5 @@ config = (
         evaluation_interval=15,
         evaluation_duration=10,
     )
-    .callbacks(VideoCallback)
+    .callbacks(lambda: VideoCallback(save_freq=1))
 )
