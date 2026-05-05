@@ -12,7 +12,7 @@ from game.gameFuncs import findNeighbours
 mock_info = {0: {}}
 
 
-# TODO multiple agents. For simplicity, now let's fit to single agent to algorithmic baseline
+# TODO multiple agents. For simplicity, now let's fit single agent to algorithmic baseline
 # TODO money delta features
 class CustomEnvironment(ParallelEnv):
     metadata = {
@@ -27,7 +27,7 @@ class CustomEnvironment(ParallelEnv):
 
     def __init__(self, rendering=True):
         """
-        ticks_delta: int (default = 1) how many game ticks to run between agent's decisions'
+        ticks_delta: int (default = 1) how many game ticks to run between agent's decisions
         """
         super().__init__()
         self.game: Game
@@ -214,14 +214,7 @@ class CustomEnvironment(ParallelEnv):
             if self.game.id_to_country[self.agent_id].size > 0:
                 reward[0] += 10
             else:
-                reward[0] -= (
-                    10
-                    * (
-                        (self.game.n_grid_rows * self.game.n_grid_columns)
-                        - self.game.id_to_country[0].size
-                    )
-                    / (self.game.n_grid_rows * self.game.n_grid_columns)
-                )  # Defeat penalty normalized
+                reward[0] -= 10
 
         if self.terminations[0]:
             self.agents = []
