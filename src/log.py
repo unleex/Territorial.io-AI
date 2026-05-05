@@ -25,9 +25,9 @@ class VideoCallback(RLlibCallback):
             img[board == i] = to_rgb(colors[i])
         return (img * 255).astype(np.uint8)
 
-    def __init__(self, save_freq=100):
+    def __init__(self):
         self.logdir = VIDEO_LOG_DIR / str(datetime.now().strftime("%Y-%m-%d %H-%M-%S"))
-        self.save_freq = save_freq
+        self.save_freq = 1
         self.logdir.mkdir(exist_ok=True)
         self.episode_idx = 0
 
@@ -42,7 +42,6 @@ class VideoCallback(RLlibCallback):
         episode,
         **kwargs,
     ):
-        self.episode_idx += 1
         if self.episode_idx % self.save_freq != 0:
             return
         base_env: CustomEnvironment = base_env._unwrapped_env.par_env
@@ -54,6 +53,7 @@ class VideoCallback(RLlibCallback):
         episode.user_data["frames"].append(frame)
 
     def on_episode_end(self, *, worker: EnvRunner, episode, **kwargs):
+        self.episode_idx += 1
         if self.episode_idx % self.save_freq != 0:
             return
         frames = episode.user_data["frames"]
