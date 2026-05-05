@@ -63,7 +63,7 @@ def evaluate(
 
             done = all(
                 terminations.get(a, False) or truncations.get(a, False)
-                for a in game.possible_agents
+                for a in env.possible_agents
             )
             if done:
                 break
@@ -72,7 +72,7 @@ def evaluate(
 
     if writer is not None:
         writer.close()
-    game.close()
+    env.close()
 
     print(f"Mean return: {np.mean(episode_returns):.3f}")
     print(f"Std return:  {np.std(episode_returns):.3f}")
