@@ -11,7 +11,7 @@ from ray.rllib.env.env_runner import EnvRunner
 from ray.rllib.env.multi_agent_env import MultiAgentEnvWrapper
 from typing import Optional, Sequence
 
-VIDEO_LOG_DIR = (Path("~/ray_results_new") / ENV_NAME / "PPO" / "videos").expanduser()
+VIDEO_LOG_DIR = (Path("~/ray_results") / ENV_NAME / "PPO" / "videos").expanduser()
 VIDEO_LOG_DIR.mkdir(exist_ok=True, parents=True)
 
 
@@ -29,7 +29,7 @@ class VideoCallback(RLlibCallback):
         self, env_runner_indices: Optional[Sequence[int]] = None, save_freq=100
     ):
         self._env_runner_indices = env_runner_indices
-        self.logdir = VIDEO_LOG_DIR / str(datetime.now())
+        self.logdir = VIDEO_LOG_DIR / str(datetime.now().strftime("%Y-%m-%d %H-%M-%S"))
         self.save_freq = save_freq
         self.logdir.mkdir()
         self.episode_idx = 0
