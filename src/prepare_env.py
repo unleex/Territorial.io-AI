@@ -1,7 +1,7 @@
-from ray.rllib.env.wrappers.pettingzoo_env import ParallelPettingZooEnv
+from ray.rllib.game.wrappers.pettingzoo_env import ParallelPettingZooEnv
 from ray.tune.registry import register_env
 
-from env.custom_environment import CustomEnvironment
+from environment import CustomEnvironment
 
 
 def _make_rllib_env(config):

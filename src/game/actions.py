@@ -1,4 +1,4 @@
-from env.countryClass import country
+from game.countryClass import country
 
 
 class Action: ...

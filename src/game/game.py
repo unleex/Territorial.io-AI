@@ -1,6 +1,6 @@
 import random
-from env.countryClass import country
-from env.gameAI import runAi
+from game.countryClass import country
+from game.gameAI import runAi
 
 
 # TODO: is cycle end even handled??

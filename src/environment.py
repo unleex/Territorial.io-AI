@@ -4,9 +4,9 @@ from render import GameRenderer
 import numpy as np
 from typing import Dict, Any, Optional
 from pettingzoo import ParallelEnv
-from env.game import Game
+from game.game import Game
 from gymnasium import spaces
-from env.gameFuncs import findNeighbours
+from game.gameFuncs import findNeighbours
 
 mock_info = {0: {}}
 

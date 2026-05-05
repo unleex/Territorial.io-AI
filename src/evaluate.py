@@ -2,7 +2,7 @@ import numpy as np
 import os
 from matplotlib.colors import to_rgb
 import imageio.v2 as imageio
-from env.custom_environment import CustomEnvironment
+from environment import CustomEnvironment
 
 
 def _board_to_rgb(board: np.ndarray, colors: list[str], n_players: int) -> np.ndarray:
@@ -36,34 +36,34 @@ def evaluate(
             video_name = f"game {ep}.mp4"
             writer = imageio.get_writer(f"{video_log_folder}/{video_name}", fps=8)
 
-        observations, _ = env.reset(seed=ep)
+        observations, _ = game.reset(seed=ep)
         done = False
-        total_rewards = {agent: 0.0 for agent in env.possible_agents}
-        while env.agents:
+        total_rewards = {agent: 0.0 for agent in game.possible_agents}
+        while game.agents:
             actions = {}
-            for agent in env.agents:
+            for agent in game.agents:
                 obs = observations[agent]
                 action, _ = model.predict(obs)
                 actions[agent] = action
 
-            observations, rewards, terminations, truncations, _ = env.step(actions)
+            observations, rewards, terminations, truncations, _ = game.step(actions)
 
             for agent in rewards:
                 total_rewards[agent] += rewards[agent]
 
             if writer is not None:
                 frame = _board_to_rgb(
-                    np.array(env.game.board),
-                    env.game.countryColors,
-                    env.game.n_players,
+                    np.array(game.game.board),
+                    game.game.countryColors,
+                    game.game.n_players,
                 )
                 writer.append_data(frame)
 
-            # env.render()
+            # game.render()
 
             done = all(
                 terminations.get(a, False) or truncations.get(a, False)
-                for a in env.possible_agents
+                for a in game.possible_agents
             )
             if done:
                 break
@@ -72,7 +72,7 @@ def evaluate(
 
     if writer is not None:
         writer.close()
-    env.close()
+    game.close()
 
     print(f"Mean return: {np.mean(episode_returns):.3f}")
     print(f"Std return:  {np.std(episode_returns):.3f}")

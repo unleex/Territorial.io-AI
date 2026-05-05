@@ -1,5 +1,5 @@
-# from env.cmu_112_graphics import *
-from env.gameFuncs import *
+# from game.cmu_112_graphics import *
+from game.gameFuncs import *
 from PIL import Image
 import os
 

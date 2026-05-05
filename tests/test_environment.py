@@ -1,8 +1,8 @@
 from pettingzoo.test import parallel_api_test
-from env.custom_environment import CustomEnvironment
+from environment import CustomEnvironment
 
 # XXX: in 25th line of parallel_api_test.py, replace the whole if-statement's body with
-# return env.action_space(agent).sample(mask=agent_obs["action_mask"])
+# return game.action_space(agent).sample(mask=agent_obs["action_mask"])
 # that prevents action mask bug
 if __name__ == "__main__":
     env = CustomEnvironment()

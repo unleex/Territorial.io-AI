@@ -2,8 +2,8 @@ import random
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from env.game import Game
-    from env.countryClass import country
+    from game.game import Game
+    from game.countryClass import country
 
 
 # target = id of country that the function is finding neighbours for
