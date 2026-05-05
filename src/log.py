@@ -33,6 +33,7 @@ class VideoCallback(RLlibCallback):
         self.save_freq = save_freq
         self.logdir.mkdir()
         self.episode_idx = 0
+        self.save_freq=1
 
     def on_episode_start(self, *, episode, **kwargs):
         episode.user_data["frames"] = []
