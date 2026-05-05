@@ -1,4 +1,4 @@
-from ray.rllib.game.wrappers.pettingzoo_env import ParallelPettingZooEnv
+from ray.rllib.env.wrappers.pettingzoo_env import ParallelPettingZooEnv
 from ray.tune.registry import register_env
 
 from environment import CustomEnvironment

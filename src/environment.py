@@ -1,4 +1,5 @@
 from collections import deque
+from copy import deepcopy
 
 from render import GameRenderer
 import numpy as np
@@ -62,7 +63,7 @@ class CustomEnvironment(ParallelEnv):
             0: spaces.Dict(
                 {
                     "observations": spaces.Box(
-                        low=0,
+                        low=-1,
                         high=1,
                         shape=obs_shape,
                         dtype=np.float32,
@@ -147,9 +148,15 @@ class CustomEnvironment(ParallelEnv):
             "action_mask": self.get_action_mask(),
         }
 
+    def _get_deltas(self):
+        deltas = deepcopy(self.map_obs_deque)
+        for delta_idx in range(2, self.obs_stack_size + 1):
+            deltas[-delta_idx] -= self.map_obs_deque[-1]
+        return deltas
+
     def observe(self, _=None):
         return {
-            "observations": np.concatenate(self.map_obs_deque),
+            "observations": np.concatenate(self._get_deltas()),
             "stats": self.saved_stats,
             "action_mask": self.get_action_mask(),
         }
