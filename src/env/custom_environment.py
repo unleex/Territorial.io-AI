@@ -4,14 +4,14 @@ from render import GameRenderer
 import numpy as np
 from typing import Dict, Any, Optional
 from pettingzoo import ParallelEnv
-from custom_environment.env.game import Game
+from env.game import Game
 from gymnasium import spaces
-from custom_environment.env.gameFuncs import findNeighbours
+from env.gameFuncs import findNeighbours
 
 mock_info = {0: {}}
 
 
-# TODO multiple agents. For simplicity, now let's fit to single agent fitting to algorithmic baseline
+# TODO multiple agents. For simplicity, now let's fit to single agent to algorithmic baseline
 # TODO money delta features
 class CustomEnvironment(ParallelEnv):
     metadata = {

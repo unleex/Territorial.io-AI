@@ -1,7 +1,7 @@
 from datetime import datetime
 
 import numpy as np
-from custom_environment.env.custom_environment import CustomEnvironment
+from env.custom_environment import CustomEnvironment
 from prepare_env import ENV_NAME
 from ray.rllib.callbacks.callbacks import RLlibCallback
 from pathlib import Path

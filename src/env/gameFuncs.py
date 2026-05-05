@@ -1,8 +1,9 @@
 import math, copy, random
-from custom_environment.env.cmu_112_graphics import *
-from custom_environment.env.countryClass import *
-from custom_environment.env.gameAI import *
-from custom_environment.env.buttonClass import *
+
+# from env.cmu_112_graphics import *
+from env.countryClass import *
+from env.gameAI import *
+from env.buttonClass import *
 import os
 
 

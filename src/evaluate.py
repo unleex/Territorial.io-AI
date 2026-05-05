@@ -2,7 +2,7 @@ import numpy as np
 import os
 from matplotlib.colors import to_rgb
 import imageio.v2 as imageio
-from custom_environment.custom_environment_v0 import CustomEnvironment
+from env.custom_environment import CustomEnvironment
 
 
 def _board_to_rgb(board: np.ndarray, colors: list[str], n_players: int) -> np.ndarray:
