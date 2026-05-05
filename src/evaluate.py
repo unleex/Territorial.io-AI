@@ -36,26 +36,26 @@ def evaluate(
             video_name = f"game {ep}.mp4"
             writer = imageio.get_writer(f"{video_log_folder}/{video_name}", fps=8)
 
-        observations, _ = game.reset(seed=ep)
+        observations, _ = env.reset(seed=ep)
         done = False
-        total_rewards = {agent: 0.0 for agent in game.possible_agents}
-        while game.agents:
+        total_rewards = {agent: 0.0 for agent in env.possible_agents}
+        while env.agents:
             actions = {}
-            for agent in game.agents:
+            for agent in env.agents:
                 obs = observations[agent]
                 action, _ = model.predict(obs)
                 actions[agent] = action
 
-            observations, rewards, terminations, truncations, _ = game.step(actions)
+            observations, rewards, terminations, truncations, _ = env.step(actions)
 
             for agent in rewards:
                 total_rewards[agent] += rewards[agent]
 
             if writer is not None:
                 frame = _board_to_rgb(
-                    np.array(game.game.board),
-                    game.game.countryColors,
-                    game.game.n_players,
+                    np.array(env.game.board),
+                    env.game.countryColors,
+                    env.game.n_players,
                 )
                 writer.append_data(frame)
 
