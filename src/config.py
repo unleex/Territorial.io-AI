@@ -15,7 +15,7 @@ config = (
         disable_env_checking=False,
     )
     .training(
-        train_batch_size=4000,
+        train_batch_size=1000,
         lr=2e-5,
         gamma=0.99,
         lambda_=0.9,
