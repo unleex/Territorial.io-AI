@@ -1,5 +1,5 @@
-from custom_environment.custom_environment_v0 import CustomEnvironment
-from custom_environment.env.gameFuncs import findNeighbours
+from env.custom_environment import CustomEnvironment
+from env.gameFuncs import findNeighbours
 import time
 
 env = CustomEnvironment()

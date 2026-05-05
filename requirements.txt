@@ -7,3 +7,4 @@ stable_baselines3==2.8.0
 torch
 pettingzoo
 pandas
+supersuit

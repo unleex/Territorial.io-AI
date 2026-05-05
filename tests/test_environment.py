@@ -1,5 +1,5 @@
 from pettingzoo.test import parallel_api_test
-from custom_environment.custom_environment_v0 import CustomEnvironment
+from env.custom_environment import CustomEnvironment
 
 # XXX: in 25th line of parallel_api_test.py, replace the whole if-statement's body with
 # return env.action_space(agent).sample(mask=agent_obs["action_mask"])
