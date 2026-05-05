@@ -1,11 +1,11 @@
 import math
 import decimal
 import random
-from custom_environment.env.gameAI import *
+from env.gameAI import *
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from custom_environment.env.game import Game
+    from env.game import Game
 
 
 def roundHalfUp(d):  # helper-fn
