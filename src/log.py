@@ -27,10 +27,9 @@ class VideoCallback(RLlibCallback):
 
     def __init__(self):
         self.logdir = VIDEO_LOG_DIR / str(datetime.now().strftime("%Y-%m-%d %H-%M-%S"))
-        self.save_freq = 1
+        self.save_freq = 100
         self.logdir.mkdir(exist_ok=True)
         self.episode_idx = 0
-        self.save_freq=1
 
     def on_episode_start(self, *, episode, **kwargs):
         episode.user_data["frames"] = []

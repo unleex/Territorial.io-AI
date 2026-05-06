@@ -42,5 +42,5 @@ config = (
         evaluation_interval=15,
         evaluation_duration=10,
     )
-    .callbacks(lambda: VideoCallback(save_freq=1))
+    .callbacks(VideoCallback)
 )
