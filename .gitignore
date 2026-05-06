@@ -8,3 +8,4 @@ __pycache__
 src/*.egg-info
 **/.DS_Store
 .DS_Store
+src/.ipynb_checkpoints

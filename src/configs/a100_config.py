@@ -37,5 +37,5 @@ config = (
     )
     .callbacks(VideoCallback)
     .resources(num_gpus=1)
-    .env_runners(num_env_runners=8,num_envs_per_env_runner=4)
+    .env_runners(num_env_runners=8, num_envs_per_env_runner=4)
 )
