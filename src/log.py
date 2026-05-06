@@ -30,20 +30,20 @@ class VideoCallback(RLlibCallback):
         self.save_freq = save_freq
         self.episode_counter = 0
 
-    def on_episode_start(self, *, episode, env_index, **kwargs):
+    def on_episode_start(self, *, episode, **kwargs):
         # Decide once at the start if this specific episode should be recorded
         record = self.episode_counter % self.save_freq == 0
         episode.user_data["record"] = record
         episode.user_data["frames"] = []
         self.episode_counter += 1
 
-    def on_episode_step(self, *, episode, env, env_index, **kwargs):
+    def on_episode_step(self, *, episode, base_env, env_index, **kwargs):
         if not episode.user_data.get("record"):
             return
 
         # 'env' in the callback is typically the BaseEnv/VectorEnv.
         # Use get_sub_environments() to get the list and index it.
-        sub_envs = env.get_sub_environments()
+        sub_envs = base_env.get_sub_environments()
         # Access the specific sub-env using the provided env_index
         actual_env = sub_envs[env_index].par_env
 
@@ -59,6 +59,8 @@ class VideoCallback(RLlibCallback):
             return
 
         frames = episode.user_data["frames"]
+        print(dir(episode))
+
         if frames:
-            fname = f"episode_{self.episode_counter}_{episode.id_}.mp4"
+            fname = f"episode_{self.episode_counter}_{episode.episode_id}.mp4"
             imageio.mimsave(self.logdir / fname, frames, fps=8)
