@@ -16,47 +16,49 @@ VIDEO_LOG_DIR.mkdir(exist_ok=True, parents=True)
 
 class VideoCallback(RLlibCallback):
     @staticmethod
-    def _board_to_rgb(
-        board: np.ndarray, colors: list[str], n_players: int
-    ) -> np.ndarray:
+    def _board_to_rgb(board: np.ndarray, colors: list, n_players: int) -> np.ndarray:
+        # Assuming to_rgb is defined globally or imported
         img = np.zeros((*board.shape, 3), dtype=np.float32)
         for i in range(n_players):
             img[board == i] = to_rgb(colors[i])
         return (img * 255).astype(np.uint8)
 
-    def __init__(self):
-        self.logdir = VIDEO_LOG_DIR / str(datetime.now().strftime("%Y-%m-%d %H-%M-%S"))
-        self.save_freq = 1
+    def __init__(self, save_freq=10):
+        super().__init__()
+        self.logdir = VIDEO_LOG_DIR / datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
         self.logdir.mkdir(exist_ok=True, parents=True)
-        self.episode_idx = 0
+        self.save_freq = save_freq
+        self.episode_counter = 0
 
-    def on_episode_start(self, *, episode, **kwargs):
+    def on_episode_start(self, *, episode, env_index, **kwargs):
+        # Decide once at the start if this specific episode should be recorded
+        record = self.episode_counter % self.save_freq == 0
+        episode.user_data["record"] = record
         episode.user_data["frames"] = []
+        self.episode_counter += 1
 
-    def on_episode_step(
-        self,
-        *,
-        base_env: MultiAgentEnvWrapper,
-        worker: EnvRunner,
-        episode,
-        **kwargs,
-    ):
-        if self.episode_idx % self.save_freq != 0:
+    def on_episode_step(self, *, episode, env, env_index, **kwargs):
+        if not episode.user_data.get("record"):
             return
-        base_env: CustomEnvironment = base_env._unwrapped_env.par_env
+
+        # 'env' in the callback is typically the BaseEnv/VectorEnv.
+        # Use get_sub_environments() to get the list and index it.
+        sub_envs = env.get_sub_environments()
+        # Access the specific sub-env using the provided env_index
+        actual_env = sub_envs[env_index].par_env
+
         frame = self._board_to_rgb(
-            np.array(base_env.game.board),
-            base_env.game.countryColors,
-            base_env.game.n_players,
+            np.array(actual_env.game.board),
+            actual_env.game.countryColors,
+            actual_env.game.n_players,
         )
         episode.user_data["frames"].append(frame)
 
-    def on_episode_end(self, *, worker: EnvRunner, episode, **kwargs):
-        self.episode_idx += 1
-        if self.episode_idx % self.save_freq != 0:
+    def on_episode_end(self, *, episode, **kwargs):
+        if not episode.user_data.get("record"):
             return
+
         frames = episode.user_data["frames"]
         if frames:
-            imageio.mimsave(
-                self.logdir / f"episode_{self.episode_idx}.mp4", frames, fps=8
-            )
+            fname = f"episode_{self.episode_counter}_{episode.id_}.mp4"
+            imageio.mimsave(self.logdir / fname, frames, fps=8)
