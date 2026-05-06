@@ -29,7 +29,7 @@ config = (
         policies={"p0"},
         policy_mapping_fn=(lambda aid, *args, **kwargs: "p0"),
     )
-    .debugging(log_level="DEBUG")
+    .debugging(log_level="INFO")
     .framework(framework="torch")
     .api_stack(
         enable_rl_module_and_learner=False,

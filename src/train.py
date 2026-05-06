@@ -1,19 +1,17 @@
 from prepare_env import ENV_NAME
 from pathlib import Path
 
-import ray
 from ray import tune
 from config import config
 
 
 def train():
-    ray.init(num_cpus=10, num_gpus=1)
     storage_uri = (Path("~/ray_results") / ENV_NAME).expanduser().resolve().as_uri()
     tune.run(
         "PPO",
         name="PPO",
-        stop={"timesteps_total": 4_000_000},
-        checkpoint_freq=10,
+        stop={"timesteps_total": 1_000_000},
+        checkpoint_freq=20,
         storage_path=storage_uri,
         config=config.to_dict(),
         reuse_actors=True,
