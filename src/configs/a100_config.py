@@ -12,7 +12,7 @@ config = (
         disable_env_checking=False,
     )
     .training(
-        train_batch_size=4_000,
+        train_batch_size=4_096,
         lr=2e-5,
         gamma=0.99,
         lambda_=0.9,
@@ -22,7 +22,7 @@ config = (
         entropy_coeff=0.1,
         vf_loss_coeff=0.25,
         minibatch_size=4096,
-        num_epochs=10,
+        num_epochs=30,
         model={"custom_model": MODEL_NAME},
     )
     .multi_agent(
