@@ -41,7 +41,9 @@ class MultiDiscreteActionMaskModel(TorchModelV2, nn.Module):
         stat_size = int(original_space["stats"].shape[0])
 
         self.trunk = nn.Sequential(
-            nn.Linear(flat_size + stat_size, 512),
+            nn.Linear(flat_size + stat_size, 1024),
+            nn.Linear(1024, 512),
+            nn.Linear(512, 512),
             nn.ReLU(),
         )
         self.policy_head = nn.Linear(512, num_outputs)

@@ -9,9 +9,8 @@ import imageio.v2 as imageio
 from matplotlib.colors import to_rgb
 from ray.rllib.env.env_runner import EnvRunner
 from ray.rllib.env.multi_agent_env import MultiAgentEnvWrapper
-from typing import Optional, Sequence
 
-VIDEO_LOG_DIR = (Path("~/ray_results") / ENV_NAME / "PPO" / "videos").expanduser()
+VIDEO_LOG_DIR = (Path("logs") / ENV_NAME / "PPO" / "videos").expanduser()
 VIDEO_LOG_DIR.mkdir(exist_ok=True, parents=True)
 
 
@@ -28,7 +27,7 @@ class VideoCallback(RLlibCallback):
     def __init__(self):
         self.logdir = VIDEO_LOG_DIR / str(datetime.now().strftime("%Y-%m-%d %H-%M-%S"))
         self.save_freq = 1
-        self.logdir.mkdir(exist_ok=True)
+        self.logdir.mkdir(exist_ok=True, parents=True)
         self.episode_idx = 0
 
     def on_episode_start(self, *, episode, **kwargs):
