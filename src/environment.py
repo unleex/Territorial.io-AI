@@ -135,8 +135,9 @@ class CustomEnvironment(ParallelEnv):
 
             if original_id in self.game.id_to_country:
                 c = self.game.id_to_country[original_id]
-                max_money = max(c.size * 1500, 1)
-                stats[stat_idx] = float(np.clip(c.money / max_money, 0.0, 1.0))
+                stats[stat_idx] = (
+                    c.money / self.game.n_grid_rows / self.game.n_grid_columns
+                )
                 stats[self.game.n_players + stat_idx] = (
                     c.size / self.game.n_grid_rows / self.game.n_grid_columns
                 )
