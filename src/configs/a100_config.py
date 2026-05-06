@@ -41,3 +41,5 @@ config = (
     )
     .learners(num_gpus_per_learner=1, num_learners=1)
 )
+NUM_CPUS = 10
+NUM_GPUS = 1

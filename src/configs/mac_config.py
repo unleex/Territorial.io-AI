@@ -1,7 +1,6 @@
 from ray.rllib.algorithms.ppo import PPOConfig
 from model import MODEL_NAME
 from prepare_env import ENV_NAME
-from pathlib import Path
 from log import VideoCallback
 
 config = (
@@ -38,3 +37,5 @@ config = (
     .callbacks(VideoCallback)
     .env_runners(num_env_runners=6)
 )
+NUM_CPUS = 8
+NUM_GPUS = 0

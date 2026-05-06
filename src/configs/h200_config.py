@@ -50,3 +50,5 @@ config = (
         _torch_lr_scheduler_classes=[partial(StepLR, step_size=400_000, gamma=0.1)]
     )
 )
+NUM_CPUS = 20
+NUM_GPUS = 1

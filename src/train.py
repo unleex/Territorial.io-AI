@@ -2,12 +2,12 @@ from prepare_env import ENV_NAME
 from pathlib import Path
 
 from ray import tune
-from config import config
+from config import config, NUM_GPUS, NUM_CPUS
 import ray
 
 
 def train():
-    ray.init(num_cpus=20, num_gpus=1)
+    ray.init(num_cpus=NUM_CPUS, num_gpus=NUM_GPUS)
     storage_uri = (Path("logs") / ENV_NAME).expanduser().resolve().as_uri()
     tune.run(
         "PPO",
@@ -17,7 +17,7 @@ def train():
         storage_path=storage_uri,
         config=config.to_dict(),
         reuse_actors=True,
-        restore="logs/custom_env/PPO/PPO_custom_env_877d9_00000_0_2026-05-06_17-54-49/checkpoint_000006",
+        # restore="logs/custom_env/PPO/PPO_custom_env_877d9_00000_0_2026-05-06_17-54-49/checkpoint_000006",
     )
 
 
