@@ -3,9 +3,11 @@ from pathlib import Path
 
 from ray import tune
 from config import config
+import ray
 
 
 def train():
+    ray.init(num_cpus=20, num_gpus=1)
     storage_uri = (Path("~/ray_results") / ENV_NAME).expanduser().resolve().as_uri()
     tune.run(
         "PPO",
