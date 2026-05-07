@@ -59,7 +59,6 @@ class VideoCallback(RLlibCallback):
             return
 
         frames = episode.user_data["frames"]
-        print(dir(episode))
 
         if frames:
             fname = f"episode_{self.episode_counter}_{episode.episode_id}.mp4"
