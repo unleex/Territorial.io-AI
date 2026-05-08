@@ -30,9 +30,11 @@ class VideoCallback(RLlibCallback):
         self.save_freq = 10
         self.episode_counter = 0
 
-    def on_episode_start(self, *, episode, **kwargs):
+    def on_episode_start(self, *, episode, env_runner, **kwargs):
         # Decide once at the start if this specific episode should be recorded
-        record = self.episode_counter % self.save_freq == 0
+        record = (
+            self.episode_counter % self.save_freq == 0 and env_runner.worker_index == 1
+        )
         episode.user_data["record"] = record
         episode.user_data["frames"] = []
         self.episode_counter += 1
