@@ -12,12 +12,12 @@ def train():
     tune.run(
         "PPO",
         name="PPO",
-        stop={"timesteps_total": 2_000_000},
+        stop={"timesteps_total": 8_000_000},
         checkpoint_freq=10,
         storage_path=storage_uri,
         config=config.to_dict(),
         reuse_actors=True,
-        # restore="logs/custom_env/PPO/PPO_custom_env_877d9_00000_0_2026-05-06_17-54-49/checkpoint_000006",
+        restore="logs/custom_env/PPO/PPO_custom_env_2d67b_00000_0_2026-05-06_21-48-31/checkpoint_000009",
     )
 
 
