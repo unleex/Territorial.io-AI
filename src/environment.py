@@ -13,7 +13,6 @@ mock_info = {0: {}}
 
 
 # TODO multiple agents. For simplicity, now let's fit single agent to algorithmic baseline
-# TODO money delta features
 class CustomEnvironment(ParallelEnv):
     metadata = {
         "name": "custom_environment_v0",
