@@ -1,6 +1,7 @@
 from datetime import datetime
 from environment import CustomEnvironment
 import numpy as np
+from game.countryClass import country
 from prepare_env import ENV_NAME
 from ray.rllib.callbacks.callbacks import RLlibCallback
 from pathlib import Path
@@ -13,10 +14,12 @@ VIDEO_LOG_DIR.mkdir(exist_ok=True, parents=True)
 
 
 class VideoCallback(RLlibCallback):
+    logdir = VIDEO_LOG_DIR / datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+
     @staticmethod
     def _render_frame(
         board: np.ndarray,
-        money: np.ndarray,
+        players: dict[int, country],
         colors: list,
         n_players: int,
         cols: int,
@@ -40,42 +43,33 @@ class VideoCallback(RLlibCallback):
 
         bar_width = hist_w // n_players
 
-        for i in range(n_players):
-            # Scale the money according to your formula
-            # Assuming money can be negative, taking absolute value as requested
-            scaled = abs(money[i]) / 1500.0 / cols / rows
-
-            # Clamp the value between 0 and 1 so it doesn't draw outside the array
-            scaled = max(0.0, min(1.0, scaled))
+        for i, player in players.items():
+            biggest = max(p.money for p in players.values())
+            scaled = player.money / biggest
 
             # Calculate how many pixels high the bar should be
             bar_h = int(scaled * h)
 
-            if bar_h > 0:
-                start_x = i * bar_width
-                # Leave a 1-pixel gap between bars if possible, otherwise use full width
-                end_x = start_x + bar_width - (1 if bar_width > 2 else 0)
+            start_x = i * bar_width
+            end_x = start_x + bar_width
 
-                color_rgb = (np.array(to_rgb(colors[i])) * 255).astype(np.uint8)
+            color_rgb = (np.array(to_rgb(colors[i])) * 255).astype(np.uint8)
 
-                # NumPy indexing: [Y_start:Y_end, X_start:X_end]
-                # We draw from the bottom (h) upwards (h - bar_h)
-                hist_img[h - bar_h : h, start_x:end_x] = color_rgb
+            # NumPy indexing: [Y_start:Y_end, X_start:X_end]
+            # We draw from the bottom (h) upwards (h - bar_h)
+            hist_img[0:bar_h, start_x:end_x] = color_rgb
 
         # 3. Concatenate the map and the histogram side-by-side
-        return np.hstack((map_img, hist_img))
+        return np.hstack((map_img, np.flipud(hist_img)))
 
     def __init__(self):
         super().__init__()
-        self.logdir = VIDEO_LOG_DIR / datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
         self.logdir.mkdir(exist_ok=True, parents=True)
-        self.save_freq = 40
+        self.save_freq = 1
         self.episode_counter = 0
 
-    def on_episode_start(self, *, episode, env_runner: EnvRunner, **kwargs):
-        record = (
-            self.episode_counter % self.save_freq == 0 and env_runner.worker_index == 1
-        )
+    def on_episode_start(self, *, episode, worker: EnvRunner, **kwargs):
+        record = self.episode_counter % self.save_freq == 0 and worker.worker_index == 1
         episode.user_data["record"] = record
         episode.user_data["frames"] = []
         self.episode_counter += 1
@@ -91,9 +85,7 @@ class VideoCallback(RLlibCallback):
         # Pass the required game state variables into our optimized renderer
         frame = self._render_frame(
             board=np.array(game.board),
-            money=np.array(
-                [player.money for player in game.id_to_country.values()]
-            ),  # Assumes game.money is accessible like this
+            players=game.id_to_country,
             colors=game.countryColors,
             n_players=game.n_players,
             cols=game.n_grid_columns,
