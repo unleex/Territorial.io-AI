@@ -2,8 +2,6 @@ from ray.rllib.algorithms.ppo import PPOConfig
 from model import MODEL_NAME
 from prepare_env import ENV_NAME
 from log import VideoCallback
-from torch.optim.lr_scheduler import StepLR
-from functools import partial
 
 config = (
     PPOConfig()
@@ -13,7 +11,7 @@ config = (
         disable_env_checking=False,
     )
     .training(
-        train_batch_size=8192,
+        train_batch_size=32_768,
         lr=2e-6,
         gamma=0.99,
         lambda_=0.9,
@@ -45,9 +43,6 @@ config = (
         num_gpus_per_learner=1,
         num_learners=1,
         num_aggregator_actors_per_learner=4,
-    )
-    .experimental(
-        _torch_lr_scheduler_classes=[partial(StepLR, step_size=400_000, gamma=0.1)]
     )
 )
 NUM_CPUS = 20

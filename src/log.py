@@ -23,11 +23,11 @@ class VideoCallback(RLlibCallback):
             img[board == i] = to_rgb(colors[i])
         return (img * 255).astype(np.uint8)
 
-    def __init__(self, save_freq=10):
+    def __init__(self):
         super().__init__()
         self.logdir = VIDEO_LOG_DIR / datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
         self.logdir.mkdir(exist_ok=True, parents=True)
-        self.save_freq = save_freq
+        self.save_freq = 10
         self.episode_counter = 0
 
     def on_episode_start(self, *, episode, **kwargs):
