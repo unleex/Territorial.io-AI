@@ -117,7 +117,9 @@ class CustomEnvironment(ParallelEnv):
             self.game.n_grid_columns,
         )
         for _ in range(self.obs_stack_size):
-            self.map_obs_deque.append(np.zeros(shape=unstacked_obs_shape))
+            self.map_obs_deque.append(
+                np.zeros(shape=unstacked_obs_shape, dtype=np.float32)
+            )
 
     def _get_observation_frame(self, _=None):
         board = np.array(self.game.board)
