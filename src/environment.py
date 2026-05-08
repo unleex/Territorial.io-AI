@@ -82,7 +82,7 @@ class CustomEnvironment(ParallelEnv):
                 }
             )
         }
-        self.saved_stats = np.zeros(shape=stats_shape)
+        self.saved_stats = np.zeros(shape=stats_shape, dtype=np.float32)
 
     def _prepare(self):
         self.game = Game()
