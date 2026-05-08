@@ -22,8 +22,4 @@ def train():
 
 
 if __name__ == "__main__":
-    try:
-        train()
-    except Exception as e:
-        print(e)
-        while True:
+    train()
