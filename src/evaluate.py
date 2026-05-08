@@ -84,7 +84,7 @@ if __name__ == "__main__":
     print("\n--- Starting Visual Debugging ---")
 
     evaluate(
-        model=None,  # TODO: load new RLlib model
+        model=None,
         num_games=10,
         video_log_folder=None,
     )

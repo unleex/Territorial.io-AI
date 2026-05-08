@@ -4,7 +4,6 @@ from game.countryClass import country
 from game.gameAI import runAi
 
 
-# TODO: is cycle end even handled??
 class Game:
     def __init__(self, n_players=8, grid_rows=80, grid_columns=80):
 

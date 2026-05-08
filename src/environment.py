@@ -13,7 +13,6 @@ mock_info = {0: {}}
 
 
 # TODO multiple agents. For simplicity, now let's fit single agent to algorithmic baseline
-# TODO money delta features
 class CustomEnvironment(ParallelEnv):
     metadata = {
         "name": "custom_environment_v0",
@@ -127,7 +126,6 @@ class CustomEnvironment(ParallelEnv):
 
         num_channels = self.game.n_players + 1
         one_hot = np.eye(num_channels, dtype=np.float32)[permuted_board]
-        # TODO definitely add cycle data (TODO is it present in game's clone lol?)
         stats = np.zeros(self.n_stats, dtype=np.float32)
         for perm_idx in range(1, self.game.n_players + 1):
             original_id = self.unpermute_id(perm_idx)
