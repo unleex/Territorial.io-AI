@@ -215,9 +215,9 @@ class CustomEnvironment(ParallelEnv):
         )
         if self.terminations[0]:
             if self.game.id_to_country[self.agent_id].size > 0:
-                reward[0] += 10
+                reward[0] += 1
             else:
-                reward[0] -= 10
+                reward[0] -= 1
 
         if self.terminations[0]:
             self.agents = []
