@@ -1,11 +1,12 @@
+import numpy as np
 import math
 import decimal
 import random
-from custom_environment.env.gameAI import *
+from game.gameAI import *
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from custom_environment.env.game import Game
+    from game.game import Game
 
 
 def roundHalfUp(d):  # helper-fn
@@ -25,7 +26,7 @@ class country:
         money=100,
         size=1,
         attackProportion=0.3,
-        attacks="Had to change cause of aliasing",
+        attacks: dict = "Had to change cause of aliasing",
     ):
         self.id = id  # corresponding int on board
         self.color = color  # fill color on board
@@ -102,50 +103,55 @@ class country:
             self.attacks[id] = (temp[0] + committed, temp[1] + committed)
 
     def incrementAttack(self, game: "Game", id):
-        if id != -1 and (
-            id not in game.id_to_country or game.id_to_country[id].size == 0
-        ):
+        if id != -1:
+            target_country = game.id_to_country.get(id)
+            if not target_country or target_country.size == 0:
+                self.attacks[id] = None
+                return
+
+        # 2. Get the Frontier (Pixels of 'target_id' touching 'self.id')
+        attacker_mask = game.board == self.id
+        target_mask = game.board == id
+
+        # Shift attacker mask to find adjacent cells
+        adj_to_attacker = np.zeros_like(attacker_mask)
+        adj_to_attacker[:-1, :] |= attacker_mask[1:, :]
+        adj_to_attacker[1:, :] |= attacker_mask[:-1, :]
+        adj_to_attacker[:, :-1] |= attacker_mask[:, 1:]
+        adj_to_attacker[:, 1:] |= attacker_mask[:, :-1]
+
+        # The conquerable pixels: adjacent to me AND belonging to target
+        conquer_mask = adj_to_attacker & target_mask
+        num_neighbours = np.count_nonzero(conquer_mask)
+
+        if num_neighbours == 0:
             self.attacks[id] = None
             return
-        neighbours = 0
-        density = 5.0
-        money = self.attacks[id][0]
+
+        money_committed = self.attacks[id][0]
         if id != -1:
-            density = game.id_to_country[id].money / game.id_to_country[id].size
-        for i in range(len(game.board)):
-            for j in range(len(game.board[0])):
-                # If current tile == id and borders the attacking country
-                if game.board[i][j] == id and self.isNeighbour(game, id, i, j):
-                    neighbours += 1
-                    game.board[i][j] = -2
+            density = target_country.money / target_country.size
+        else:
+            density = 5.0  # Neutral land density
+
+        total_cost = num_neighbours * density
+
         # If committed troops are insufficient for conquering
-        if neighbours * density > money:
-            # Reset game board to original state
-            for i in range(len(game.board)):
-                for j in range(len(game.board[0])):
-                    if game.board[i][j] == -2:
-                        game.board[i][j] = id
+        if total_cost > money_committed:
+            # Failure: Penalty but no land gain
             if id != -1:
-                game.id_to_country[id].money -= money
+                target_country.money -= money_committed
             else:
-                self.money += money
+                self.money += money_committed
             self.attacks[id] = None
             return
-        # If there are no more cells that can be conquered
-        if neighbours == 0:
-            self.attacks[id] = None
-            return
-        for i in range(len(game.board)):
-            for j in range(len(game.board[0])):
-                # If current tile == id and borders the attacking country
-                if game.board[i][j] == -2:
-                    game.board[i][j] = self.id
-        self.size += neighbours
+        game.board[conquer_mask] = self.id
+        self.size += conquer_mask.sum()
         if id != -1:
-            game.id_to_country[id].size -= neighbours
-            game.id_to_country[id].money -= roundHalfUp(neighbours * density)
+            game.id_to_country[id].size -= num_neighbours
+            game.id_to_country[id].money -= roundHalfUp(num_neighbours * density)
         self.attacks[id] = (
-            money - roundHalfUp(neighbours * density),
+            money_committed - roundHalfUp(num_neighbours * density),
             self.attacks[id][1],
         )
 
@@ -153,7 +159,7 @@ class country:
         toRemove = []
         for key in self.attacks:
             self.incrementAttack(game, key)
-            if self.attacks[key] == None:
+            if self.attacks[key] is None:
                 toRemove.append(key)
 
         for i in toRemove:

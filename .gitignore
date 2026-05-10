@@ -5,3 +5,8 @@ models
 .vscode
 __pycache__
 **/.DS_Store
+src/*.egg-info
+**/.DS_Store
+.DS_Store
+src/.ipynb_checkpoints
+config.py

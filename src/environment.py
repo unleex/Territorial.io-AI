@@ -1,23 +1,18 @@
-from multiprocessing.spawn import prepare
+from collections import deque
+from copy import deepcopy
 
 from render import GameRenderer
 import numpy as np
-import numpy.typing as npt
-from typing import Dict, Any, Tuple, List, Optional
-from pettingzoo.utils.env import AgentID, ObsDict, ActionDict
-from pettingzoo import ParallelEnv, AECEnv
-from custom_environment.env.game import Game
+from typing import Dict, Any, Optional
+from pettingzoo import ParallelEnv
+from game.game import Game
 from gymnasium import spaces
-from custom_environment.env.gameFuncs import findNeighbours
-from gymnasium import Env
+from game.gameFuncs import findNeighbours
 
 mock_info = {0: {}}
-import matplotlib.pyplot as plt
-from matplotlib.colors import to_rgb
-import numpy as np
 
 
-# TODO multiple agents. For simplicity, now let's fit to single agent fitting to algorithmic baseline
+# TODO multiple agents. For simplicity, now let's fit single agent to algorithmic baseline
 class CustomEnvironment(ParallelEnv):
     metadata = {
         "name": "custom_environment_v0",
@@ -31,7 +26,7 @@ class CustomEnvironment(ParallelEnv):
 
     def __init__(self, rendering=True):
         """
-        ticks_delta: int (default = 1) how many game ticks to run between agent's decisions'
+        ticks_delta: int (default = 1) how many game ticks to run between agent's decisions
         """
         super().__init__()
         self.game: Game
@@ -40,21 +35,20 @@ class CustomEnvironment(ParallelEnv):
         self.reverse_id_permutation: np.ndarray
         self.agent_id = 0
         self.render_mode = None
-        self._prepare()
         self.rendering = rendering
-        if self.rendering:
-            self.renderer = GameRenderer(self.game.countryColors)
         self.possible_agents = [0]
         self.agents = self.possible_agents[:]
         self.terminations = {0: False}
         self.truncations = {0: False}
         self.reward = 0.0
-
+        self.obs_stack_size = 4
+        self.map_obs_deque: deque[np.ndarray] = deque(maxlen=self.obs_stack_size)
+        self._prepare()
         # map of one-hot vectors (each player + neutral)
         self.n_board_channels = self.game.n_players + 1
         self.n_stats_channels = self.game.n_players * 2
         obs_shape = (
-            self.n_board_channels + self.n_stats_channels,
+            (self.game.n_players + 1) * self.obs_stack_size,
             self.game.n_grid_rows,
             self.game.n_grid_columns,
         )
@@ -70,7 +64,7 @@ class CustomEnvironment(ParallelEnv):
             0: spaces.Dict(
                 {
                     "observations": spaces.Box(
-                        low=0,
+                        low=-1,
                         high=1,
                         shape=obs_shape,
                         dtype=np.float32,
@@ -90,9 +84,12 @@ class CustomEnvironment(ParallelEnv):
                 }
             )
         }
+        self.saved_stats = np.zeros(shape=stats_shape, dtype=np.float32)
 
     def _prepare(self):
         self.game = Game()
+        if self.rendering:
+            self.renderer = GameRenderer(self.game.countryColors)
         neutral_original_id = -1
         neutral_perm_index = 0
         agent_perm_index = 1
@@ -115,8 +112,17 @@ class CustomEnvironment(ParallelEnv):
         self.reverse_id_permutation = np.empty(self.game.n_players + 1, dtype=int)
         for original_id, permuted_id in enumerate(self.id_permutation):
             self.reverse_id_permutation[permuted_id] = original_id
+        unstacked_obs_shape = (
+            (self.game.n_players + 1),  # no self.obs_stack_size, we need raw one here
+            self.game.n_grid_rows,
+            self.game.n_grid_columns,
+        )
+        for _ in range(self.obs_stack_size):
+            self.map_obs_deque.append(
+                np.zeros(shape=unstacked_obs_shape, dtype=np.float32)
+            )
 
-    def observe(self, _=None):
+    def _get_observation_frame(self, _=None):
         board = np.array(self.game.board)
         permuted_board = np.full(board.shape, -1)
         for original_id in range(-1, self.game.n_players):
@@ -124,7 +130,6 @@ class CustomEnvironment(ParallelEnv):
 
         num_channels = self.game.n_players + 1
         one_hot = np.eye(num_channels, dtype=np.float32)[permuted_board]
-        # TODO definitely add cycle data
         stats = np.zeros(self.n_stats, dtype=np.float32)
         for perm_idx in range(1, self.game.n_players + 1):
             original_id = self.unpermute_id(perm_idx)
@@ -132,44 +137,32 @@ class CustomEnvironment(ParallelEnv):
 
             if original_id in self.game.id_to_country:
                 c = self.game.id_to_country[original_id]
-                max_money = max(c.size * 1500, 1)
-                stats[stat_idx] = float(np.clip(c.money / max_money, 0.0, 1.0))
+                stats[stat_idx] = (
+                    c.money / 1500 / self.game.n_grid_rows / self.game.n_grid_columns
+                )
                 stats[self.game.n_players + stat_idx] = (
                     c.size / self.game.n_grid_rows / self.game.n_grid_columns
                 )
             # else: player is dead → stays 0.0
-
-<<<<<<< HEAD
-        stats = np.zeros(self.n_stats_channels, dtype=np.float32)
-        for perm_idx in range(1, self.game.n_players + 1):
-            original_id = self.unpermute_id(perm_idx)
-            stat_idx = perm_idx - 1
-            if original_id in self.game.id_to_country:
-                c = self.game.id_to_country[original_id]
-                max_money = max(c.size * 1500, 1)
-                stats[stat_idx] = float(np.clip(c.money / max_money, 0.0, 1.0))
-                stats[self.game.n_players + stat_idx] = c.size / self.game.n_grid_rows / self.game.n_grid_columns 
-            # else: player is dead → stays 0.0
-            else:
-                stats[stat_idx] = 0.0
-                stats[self.game.n_players + stat_idx] = 0.0
- 
-        # Broadcast (n_stats,) → (H, W, n_stats) constant channels
-        stats_channels = np.broadcast_to(
-            stats[np.newaxis, np.newaxis, :],
-            (self.game.n_grid_rows, self.game.n_grid_columns, self.n_stats_channels),
-        ).astype(np.float32)
- 
-        full_obs = np.concatenate([one_hot, stats_channels], axis=2)  # (H, W, C)
-        return full_obs.transpose(2, 0, 1)  # (C, H, W)
-=======
         # Transpose to (Channels, Height, Width) for PyTorch/CNN compatibility
         return {
             "observations": one_hot.transpose(2, 0, 1),
             "stats": stats,
             "action_mask": self.get_action_mask(),
         }
->>>>>>> 05c4ae6598dd813427af78e4d31fec3a2ded95ad
+
+    def _get_deltas(self):
+        deltas = deepcopy(self.map_obs_deque)
+        for delta_idx in range(2, self.obs_stack_size + 1):
+            deltas[-delta_idx] -= self.map_obs_deque[-1]
+        return deltas
+
+    def observe(self, _=None):
+        return {
+            "observations": np.concatenate(self._get_deltas()),
+            "stats": self.saved_stats,
+            "action_mask": self.get_action_mask(),
+        }
 
     def reset(
         self, seed: Optional[int] = None, options: Optional[Dict[str, Any]] = None
@@ -178,6 +171,7 @@ class CustomEnvironment(ParallelEnv):
         self._prepare()
         if self.rendering:
             self.renderer.reset()
+        self._update_frames(None)
         return {0: self.observe()}, mock_info
 
     def get_action_mask(self, agent=None):
@@ -188,13 +182,14 @@ class CustomEnvironment(ParallelEnv):
         commit_mask = np.ones(self.n_commit_bins, dtype=np.float32)
         return np.concatenate([target_mask, commit_mask])
 
+    def _update_frames(self, _=None):
+        obs = self._get_observation_frame(_)
+        self.map_obs_deque.append(obs["observations"])
+        self.saved_stats = obs["stats"]
+
     def step(self, action: dict[int, Any]):
         if not self.agents:
             return {}, {}, {}, {}, {}
-        for _ in range(self.ticks_delta):
-            self.game.tick()
-        # TODO mask out self-attack
-        old_player_size = self.game.id_to_country[self.agent_id].size
         # 0 is neutral, others are agents
         target = action[0][0]
         commited_bin = action[0][1]
@@ -202,8 +197,14 @@ class CustomEnvironment(ParallelEnv):
             self.game.id_to_country[self.agent_id].money * commited_bin / 10.0
         )  # Convert 0..10 to 0.0..1.0
         target = self.unpermute_id(target)
+
+        old_player_size = self.game.id_to_country[self.agent_id].size
         self.game.id_to_country[self.agent_id].attackInit(self.game, target, commited)
+        for _ in range(self.ticks_delta):
+            self.game.tick()
+        self._update_frames()
         obs = {0: self.observe(self.agents[0])}
+
         reward = {
             0: (self.game.id_to_country[self.agent_id].size - old_player_size)
             / (self.game.n_grid_rows * self.game.n_grid_columns)
@@ -216,14 +217,7 @@ class CustomEnvironment(ParallelEnv):
             if self.game.id_to_country[self.agent_id].size > 0:
                 reward[0] += 10
             else:
-                reward[0] -= (
-                    10
-                    * (
-                        (self.game.n_grid_rows * self.game.n_grid_columns)
-                        - self.game.id_to_country[0].size
-                    )
-                    / (self.game.n_grid_rows * self.game.n_grid_columns)
-                )  # Defeat penalty normalized
+                reward[0] -= 10
 
         if self.terminations[0]:
             self.agents = []

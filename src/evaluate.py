@@ -2,7 +2,7 @@ import numpy as np
 import os
 from matplotlib.colors import to_rgb
 import imageio.v2 as imageio
-from custom_environment.custom_environment_v0 import CustomEnvironment
+from environment import CustomEnvironment
 
 
 def _board_to_rgb(board: np.ndarray, colors: list[str], n_players: int) -> np.ndarray:
@@ -59,7 +59,7 @@ def evaluate(
                 )
                 writer.append_data(frame)
 
-            # env.render()
+            # game.render()
 
             done = all(
                 terminations.get(a, False) or truncations.get(a, False)
@@ -84,7 +84,7 @@ if __name__ == "__main__":
     print("\n--- Starting Visual Debugging ---")
 
     evaluate(
-        model=None,  # TODO: load new RLlib model
+        model=None,
         num_games=10,
         video_log_folder=None,
     )

@@ -1,14 +1,11 @@
 from ray.rllib.env.wrappers.pettingzoo_env import ParallelPettingZooEnv
 from ray.tune.registry import register_env
 
-from custom_environment.custom_environment_v0 import CustomEnvironment
-
-
-# TODO: frame_stack_v1 isn't default???
+from environment import CustomEnvironment
 
 
 def _make_rllib_env(config):
-    base = CustomEnvironment()
+    base = CustomEnvironment(rendering=False)
     wrapped = ParallelPettingZooEnv(base)
     wrapped._agent_ids = set(getattr(base, "possible_agents", []))
     return wrapped

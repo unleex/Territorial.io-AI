@@ -1,9 +1,9 @@
+import numpy as np
 import random
-from custom_environment.env.countryClass import country
-from custom_environment.env.gameAI import runAi
+from game.countryClass import country
+from game.gameAI import runAi
 
 
-# TODO: is cycle end even handled??
 class Game:
     def __init__(self, n_players=8, grid_rows=80, grid_columns=80):
 
@@ -21,12 +21,12 @@ class Game:
         self.gameOver = False
         self.n_players = n_players
         self.id_to_country: dict[int, country] = {}
-        self.board: list[list[int]] = []
+        board = []
         self.n_grid_rows = grid_rows
         self.n_grid_columns = grid_columns
         for i in range(self.n_grid_rows):
-            self.board.append([-1] * self.n_grid_columns)
-
+            board.append([-1] * self.n_grid_columns)
+        self.board = np.array(board)
         for i in range(self.n_players):
             row = random.randint(0, self.n_grid_rows - 1)
             col = random.randint(0, self.n_grid_columns - 1)

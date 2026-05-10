@@ -1,30 +1,36 @@
 import random
 from typing import TYPE_CHECKING
+import numpy as np
 
 if TYPE_CHECKING:
-    from custom_environment.env.game import Game
-    from custom_environment.env.countryClass import country
+    from game.game import Game
+    from game.countryClass import country
 
 
 # target = id of country that the function is finding neighbours for
-# TODO: optimize to O(n)
 def findNeighbours(game: "Game", target):
-    d = dict()
-    for i in range(len(game.board)):
-        for j in range(len(game.board[0])):
-            if (
-                game.board[i][j] != target
-                and not i - 1 < 0
-                and game.board[i - 1][j] == target
-                or not i + 1 >= len(game.board)
-                and game.board[i + 1][j] == target
-                or not j - 1 < 0
-                and game.board[i][j - 1] == target
-                or not j + 1 >= len(game.board[0])
-                and game.board[i][j + 1] == target
-            ):
-                d[game.board[i][j]] = d.get(game.board[i][j], 0) + 1
-    return d
+    """
+    Returns a list of unique player IDs that share a border with the given player_id.
+    """
+    grid = game.board
+    # 1. Mask of current player's territory
+    mask = grid == target
+
+    # 2. Find all cells adjacent to the mask (UP, DOWN, LEFT, RIGHT)
+    # We create a combined mask of all neighbors
+    adjacent_mask = np.zeros_like(mask)
+    adjacent_mask[:-1, :] |= mask[1:, :]  # From below
+    adjacent_mask[1:, :] |= mask[:-1, :]  # From above
+    adjacent_mask[:, :-1] |= mask[:, 1:]  # From right
+    adjacent_mask[:, 1:] |= mask[:, :-1]  # From left
+
+    # 3. Filter: We only care about neighbors that are NOT the player themselves
+    neighbor_pixels_mask = adjacent_mask & ~mask
+
+    # 4. Extract the actual values (IDs) from the grid at those locations
+    neighbor_ids = grid[neighbor_pixels_mask]
+    ids, counts = np.unique(neighbor_ids, return_counts=True)
+    return dict(zip(ids, counts))
 
 
 def runAi(game: "Game", agent: "country"):
