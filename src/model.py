@@ -38,11 +38,16 @@ class MultiDiscreteActionMaskModel(TorchModelV2, nn.Module):
         with torch.no_grad():
             dummy = torch.zeros(1, *self._obs_shape, dtype=torch.float32)
             flat_size = self.encoder(dummy).shape[1]
+            # print("Input size for the trunk:", flat_size)
         stat_size = int(original_space["stats"].shape[0])
 
         self.trunk = nn.Sequential(
             nn.Linear(flat_size + stat_size, 1024),
+            nn.ReLU(),
             nn.Linear(1024, 512),
+            nn.ReLU(),
+            nn.Linear(512, 512),
+            nn.ReLU(),
             nn.Linear(512, 512),
             nn.ReLU(),
         )
