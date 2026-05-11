@@ -45,6 +45,8 @@ class CustomEnvironment(ParallelEnv):
         self.map_obs_deque: deque[np.ndarray] = deque(maxlen=self.obs_stack_size)
         self._prepare()
         # map of one-hot vectors (each player + neutral)
+        self.n_board_channels = self.game.n_players + 1
+        self.n_stats_channels = self.game.n_players * 2
         obs_shape = (
             (self.game.n_players + 1) * self.obs_stack_size,
             self.game.n_grid_rows,
