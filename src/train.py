@@ -17,7 +17,8 @@ def train():
         storage_path=storage_uri,
         config=config.to_dict(),
         reuse_actors=True,
-        restore="logs/custom_env/PPO/PPO_custom_env_2d67b_00000_0_2026-05-06_21-48-31/checkpoint_000009",
+        # since we use new reward scale (±5 on term)
+        # restore="logs/custom_env/PPO/PPO_custom_env_2d67b_00000_0_2026-05-06_21-48-31/checkpoint_000009",
     )
 
 

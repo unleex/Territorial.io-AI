@@ -11,7 +11,7 @@ config = (
         disable_env_checking=False,
     )
     .training(
-        train_batch_size=32_768,
+        train_batch_size=256,
         lr=2e-5,
         gamma=0.99,
         lambda_=0.9,
@@ -20,8 +20,8 @@ config = (
         grad_clip=0.5,
         entropy_coeff=0.1,
         vf_loss_coeff=0.25,
-        minibatch_size=8192,
-        num_epochs=15,
+        minibatch_size=128,
+        num_epochs=10,
         model={"custom_model": MODEL_NAME},
     )
     .multi_agent(
@@ -35,15 +35,7 @@ config = (
         enable_env_runner_and_connector_v2=False,
     )
     .callbacks(VideoCallback)
-    .resources(num_gpus=1)
-    .env_runners(
-        num_env_runners=4, num_envs_per_env_runner=8, num_cpus_per_env_runner=2
-    )
-    .learners(
-        num_gpus_per_learner=1,
-        num_learners=1,
-        num_aggregator_actors_per_learner=4,
-    )
+    .env_runners(num_env_runners=6)
 )
-NUM_CPUS = 20
-NUM_GPUS = 1
+NUM_CPUS = 8
+NUM_GPUS = 0
