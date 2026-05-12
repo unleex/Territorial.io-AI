@@ -12,7 +12,7 @@ config = (
     )
     .training(
         train_batch_size=32_768,
-        lr=2e-5,
+        lr=5e-5,
         gamma=0.99,
         lambda_=0.9,
         use_gae=True,

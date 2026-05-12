@@ -14,7 +14,8 @@ mock_info = {0: {}}
 
 # TODO multiple agents. For simplicity, now let's fit single agent to algorithmic baseline
 
-# TODO multiple agents: create a pool of agents and bootstrap 
+
+# TODO multiple agents: create a pool of agents and bootstrap
 # them each time for more diversity!
 class CustomEnvironment(ParallelEnv):
     metadata = {
@@ -216,11 +217,11 @@ class CustomEnvironment(ParallelEnv):
             self.game.id_to_country[self.agent_id].size == 0
             or len(self.game.id_to_country) == 1
         )
-        if self.terminations[0]:
-            if self.game.id_to_country[self.agent_id].size > 0:
-                reward[0] += 0.5
-            else:
-                reward[0] -= 0.5
+        # if self.terminations[0]:
+        #     if self.game.id_to_country[self.agent_id].size > 0:
+        #         reward[0] += 0.5
+        #     else:
+        #         reward[0] -= 0.5
 
         if self.terminations[0]:
             self.agents = []
