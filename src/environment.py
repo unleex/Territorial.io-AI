@@ -13,6 +13,9 @@ mock_info = {0: {}}
 
 
 # TODO multiple agents. For simplicity, now let's fit single agent to algorithmic baseline
+
+# TODO multiple agents: create a pool of agents and bootstrap 
+# them each time for more diversity!
 class CustomEnvironment(ParallelEnv):
     metadata = {
         "name": "custom_environment_v0",
