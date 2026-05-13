@@ -27,11 +27,15 @@ class MultiDiscreteActionMaskModel(TorchModelV2, nn.Module):
         in_channels = int(self._obs_shape[0])
 
         self.encoder = nn.Sequential(
-            nn.Conv2d(in_channels, 32, kernel_size=8, stride=4),
+            # no dilation since first layers must detect borders
+            nn.Conv2d(in_channels, 32, kernel_size=3, stride=2, padding=1),
             nn.ReLU(),
-            nn.Conv2d(32, 64, kernel_size=4, stride=2),
+            nn.Conv2d(32, 64, kernel_size=3, stride=2, padding=1),
             nn.ReLU(),
-            nn.Conv2d(64, 64, kernel_size=3, stride=1),
+            # dilation to look at broader territory
+            nn.Conv2d(64, 128, kernel_size=3, stride=1, padding=1, dilation=2),
+            nn.ReLU(),
+            nn.Conv2d(128, 128, kernel_size=3, stride=1, padding=1),
             nn.ReLU(),
             nn.Flatten(),
         )
@@ -45,10 +49,6 @@ class MultiDiscreteActionMaskModel(TorchModelV2, nn.Module):
             nn.Linear(flat_size + stat_size, 1024),
             nn.ReLU(),
             nn.Linear(1024, 512),
-            nn.ReLU(),
-            nn.Linear(512, 512),
-            nn.ReLU(),
-            nn.Linear(512, 512),
             nn.ReLU(),
         )
         self.policy_head = nn.Linear(512, num_outputs)
