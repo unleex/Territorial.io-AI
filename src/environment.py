@@ -50,7 +50,7 @@ class CustomEnvironment(ParallelEnv):
         self.reverse_id_permutation: Dict[int, np.ndarray] = {}
         
         self.map_obs_deque: Dict[int, deque[np.ndarray]] = {}
-        self.saved_stats = Dict[int, np.ndarray] = {}
+        self.saved_stats : Dict[int, np.ndarray] = {}
         
         # map of one-hot vectors (each player + neutral)
         self.n_board_channels = self.game.n_players + 1
@@ -154,6 +154,7 @@ class CustomEnvironment(ParallelEnv):
                 )
             # else: player is dead → stays 0.0
         # Transpose to (Channels, Height, Width) for PyTorch/CNN compatibility
+        stats.clip(stats, 0.0, 1.0)
         return {
             "observations": one_hot.transpose(2, 0, 1),
             "stats": stats,
@@ -180,7 +181,7 @@ class CustomEnvironment(ParallelEnv):
         self.agents = self.possible_agents[:]
         self.terminations = {agent: False for agent in self.possible_agents}
         self.truncations = {agent: False for agent in self.possible_agents}
-        
+
         if self.rendering:
             self.renderer.reset()
         for agent in self.possible_agents:
@@ -209,7 +210,7 @@ class CustomEnvironment(ParallelEnv):
 
         old_player_size = {agent : (self.game.id_to_country[agent].size if agent in self.game.id_to_country else 0) for agent in self.possible_agents}
 
-        for agent in self.possible_agents:
+        for agent in self.agents:
             if agent not in self.game.id_to_country : continue
             target = action[agent][0]
             commited_bin = action[agent][1]
@@ -226,20 +227,20 @@ class CustomEnvironment(ParallelEnv):
             self._update_frames(agent)
         
         obs, rewards, terminations, truncations, infos = {}, {}, {}, {}, {}
-        for agent in self.agents:
+        for agent in list(self.agents):
             is_alive = agent in self.game.id_to_country and self.game.id_to_country[agent].size > 0
             is_won = is_alive and len(self.game.id_to_country) == 1
 
-            rewards[agent] = (self.game.id_to_country[agent].size - old_player_size[agent]) / (self.game.n_grid_rows * self.game.n_grid_columns)
+            new_size = self.game.id_to_country[agent].size if is_alive else 0
+            rewards[agent] = (new_size - old_player_size[agent]) / (self.game.n_grid_rows * self.game.n_grid_columns)
             terminations[agent] = not is_alive or is_won
             truncations[agent] = False
             infos[agent] = {}
             
-            if is_alive and not is_won:
-                obs[agent] = self.observe(agent)
+            obs[agent] = self.observe(agent)
 
             if terminations[agent]:
-                if self.game.id_to_country[agent].size > 0:
+                if is_alive:
                     rewards[agent] += 0.5
                 else:
                     rewards[agent] -= 0.5
@@ -247,7 +248,7 @@ class CustomEnvironment(ParallelEnv):
         self.truncations = truncations
         self.terminations = terminations
 
-        self.agents = [agent for agent in self.agents if not self.terminations[agent]]
+        self.agents = [agent for agent in self.agents if not terminations[agent]]
         return obs, rewards, terminations, truncations, infos
 
     def render(self, targeted_player=-1, commited=0, **kwargs):

@@ -5,7 +5,7 @@ from game.gameAI import runAi
 
 
 class Game:
-    def __init__(self, n_players, n_agents=4, grid_rows=80, grid_columns=80):
+    def __init__(self, n_players=8, n_agents=8, grid_rows=80, grid_columns=80):
         self.countryColors = [
             "#ffffffff",
             "#ffff00",
