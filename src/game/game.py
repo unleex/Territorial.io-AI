@@ -5,8 +5,7 @@ from game.gameAI import runAi
 
 
 class Game:
-    def __init__(self, n_players=8, grid_rows=80, grid_columns=80):
-
+    def __init__(self, n_players, n_agents=4, grid_rows=80, grid_columns=80):
         self.countryColors = [
             "#ffffffff",
             "#ffff00",
@@ -17,9 +16,11 @@ class Game:
             "#ff00ff",
             "#fc9105",
         ]
+        self.agents = list(range(n_agents))
         self.ticks = 0
         self.gameOver = False
         self.n_players = n_players
+        self.n_agents = n_agents
         self.id_to_country: dict[int, country] = {}
         board = []
         self.n_grid_rows = grid_rows
@@ -52,6 +53,6 @@ class Game:
                 del self.id_to_country[key]
                 continue
             self.id_to_country[key].updateMoney()
-            if key != 0:
+            if key not in self.agents:
                 runAi(self, self.id_to_country[key])
             self.id_to_country[key].incrementAttacks(self)
