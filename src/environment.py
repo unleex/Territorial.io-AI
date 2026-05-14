@@ -22,10 +22,10 @@ class CustomEnvironment(ParallelEnv):
         "name": "custom_environment_v0",
     }
 
-    def permute_id(self, original_id: int, agent : int) -> int:
+    def permute_id(self, original_id: int, agent: int) -> int:
         return int(self.id_permutation[agent][original_id + 1])
 
-    def unpermute_id(self, permuted_id: int, agent : int) -> int:
+    def unpermute_id(self, permuted_id: int, agent: int) -> int:
         return int(self.reverse_id_permutation[agent][permuted_id] - 1)
 
     def __init__(self, rendering=True):
@@ -43,15 +43,15 @@ class CustomEnvironment(ParallelEnv):
 
         self.possible_agents = list(range(self.game.n_agents))
         self.agents = []
-        self.terminations = {agent : False for agent in self.possible_agents}
-        self.truncations = {agent : False for agent in self.possible_agents}
+        self.terminations = {agent: False for agent in self.possible_agents}
+        self.truncations = {agent: False for agent in self.possible_agents}
 
         self.id_permutation: Dict[int, np.ndarray] = {}
         self.reverse_id_permutation: Dict[int, np.ndarray] = {}
-        
+
         self.map_obs_deque: Dict[int, deque[np.ndarray]] = {}
-        self.saved_stats : Dict[int, np.ndarray] = {}
-        
+        self.saved_stats: Dict[int, np.ndarray] = {}
+
         # map of one-hot vectors (each player + neutral)
         self.n_board_channels = self.game.n_players + 1
         self.n_stats_channels = self.game.n_players * 2
@@ -63,50 +63,56 @@ class CustomEnvironment(ParallelEnv):
         self.n_stats = self.game.n_players * 2
         stats_shape = (self.n_stats,)
 
-        self.action_spaces = {agent: spaces.MultiDiscrete([self.game.n_players + 1, self.n_commit_bins]) 
-                              for agent in self.possible_agents}  # who to attack (or stall) + amount of troops (0%, 10%, 20%, ...)
+        self.action_spaces = {
+            agent: spaces.MultiDiscrete([self.game.n_players + 1, self.n_commit_bins])
+            for agent in self.possible_agents
+        }  # who to attack (or stall) + amount of troops (0%, 10%, 20%, ...)
         self.observation_spaces = {
-            agent : spaces.Dict({
-                "observations": spaces.Box(
-                    low=-1,
-                    high=1,
-                    shape=obs_shape,
-                    dtype=np.float32,
-                ),
-                "stats": spaces.Box(
-                    low=0,
-                    high=1,
-                    shape=stats_shape,
-                    dtype=np.float32,
-                ),
-                "action_mask": spaces.Box(
-                    low=0.0,
-                    high=1.0,
-                    shape=(self.game.n_players + 1 + self.n_commit_bins,),
-                    dtype=np.float32,
-                ),
-            })
+            agent: spaces.Dict(
+                {
+                    "observations": spaces.Box(
+                        low=-1,
+                        high=1,
+                        shape=obs_shape,
+                        dtype=np.float32,
+                    ),
+                    "stats": spaces.Box(
+                        low=0,
+                        high=1,
+                        shape=stats_shape,
+                        dtype=np.float32,
+                    ),
+                    "action_mask": spaces.Box(
+                        low=0.0,
+                        high=1.0,
+                        shape=(self.game.n_players + 1 + self.n_commit_bins,),
+                        dtype=np.float32,
+                    ),
+                }
+            )
             for agent in self.possible_agents
         }
-        
+
         self._prepare()
-    
 
     def _build_permutations(self, agent):
         id_perm = np.zeros(self.game.n_players + 1, dtype=int)
         id_perm[agent + 1] = 1
-        others = [other_agent + 1 for other_agent in range(self.game.n_players) if other_agent != agent]
+        others = [
+            other_agent + 1
+            for other_agent in range(self.game.n_players)
+            if other_agent != agent
+        ]
         np.random.shuffle(others)
 
         for perm_id, id in enumerate(others, start=2):
             id_perm[id] = perm_id
-        
+
         reverse_perm = np.zeros(self.game.n_players + 1, dtype=int)
         for id, perm_id in enumerate(others):
             reverse_perm[perm_id] = id
-        
-        return id_perm, reverse_perm
 
+        return id_perm, reverse_perm
 
     def _prepare(self):
         self.game = Game()
@@ -129,7 +135,9 @@ class CustomEnvironment(ParallelEnv):
             self.map_obs_deque[agent] = deque(maxlen=self.obs_stack_size)
 
             for _ in range(self.obs_stack_size):
-                self.map_obs_deque[agent].append(np.zeros(unstacked_obs_shape, dtype=np.float32))
+                self.map_obs_deque[agent].append(
+                    np.zeros(unstacked_obs_shape, dtype=np.float32)
+                )
 
     def _get_observation_frame(self, agent):
         board = np.array(self.game.board)
@@ -185,7 +193,9 @@ class CustomEnvironment(ParallelEnv):
             self.renderer.reset()
         for agent in self.possible_agents:
             self._update_frames(agent)
-        return {agent : self.observe(agent) for agent in self.possible_agents}, {agent : {} for agent in self.possible_agents}
+        return {agent: self.observe(agent) for agent in self.possible_agents}, {
+            agent: {} for agent in self.possible_agents
+        }
 
     def get_action_mask(self, agent):
         target_mask = np.zeros(self.game.n_players + 1, dtype=np.float32)
@@ -203,11 +213,26 @@ class CustomEnvironment(ParallelEnv):
         self.saved_stats[agent] = obs["stats"]
 
     def step(self, action: Dict[int, Any]):
-        old_player_size = {agent : (self.game.id_to_country[agent].size if agent in self.game.id_to_country else 0) for agent in self.possible_agents}
-        old_player_money = {agent : (self.game.id_to_country[agent].money if agent in self.game.id_to_country else 0) for agent in self.possible_agents}
+        old_player_size = {
+            agent: (
+                self.game.id_to_country[agent].size
+                if agent in self.game.id_to_country
+                else 0
+            )
+            for agent in self.possible_agents
+        }
+        old_player_money = {
+            agent: (
+                self.game.id_to_country[agent].money
+                if agent in self.game.id_to_country
+                else 0
+            )
+            for agent in self.possible_agents
+        }
 
         for agent in self.agents:
-            if agent not in self.game.id_to_country : continue
+            if agent not in self.game.id_to_country:
+                continue
             target = action[agent][0]
             commited_bin = action[agent][1]
             commited = (
@@ -215,37 +240,45 @@ class CustomEnvironment(ParallelEnv):
             )  # Convert 0..10 to 0.0..1.0
             target = self.unpermute_id(target, agent)
             self.game.id_to_country[agent].attackInit(self.game, target, commited)
-        
+
         for _ in range(self.ticks_delta):
             self.game.tick()
 
         for agent in self.agents:
             self._update_frames(agent)
-        
+
         obs, rewards, terminations, truncations, infos = {}, {}, {}, {}, {}
         for agent in list(self.agents):
-            is_alive = agent in self.game.id_to_country and self.game.id_to_country[agent].size > 0
+            is_alive = (
+                agent in self.game.id_to_country
+                and self.game.id_to_country[agent].size > 0
+            )
             is_won = is_alive and len(self.game.id_to_country) == 1
 
             new_size = self.game.id_to_country[agent].size if is_alive else 0
             new_money = self.game.id_to_country[agent].money if is_alive else 0
-            rewards[agent] = (new_size - old_player_size[agent]) / (self.game.n_grid_rows * self.game.n_grid_columns)
-            rewards[agent] += (new_money - old_player_money[agent]) / (self.game.n_grid_rows * self.game.n_grid_columns) / 1500
-            print("money reward:",  (new_money - old_player_money[agent]) / (self.game.n_grid_rows * self.game.n_grid_columns) / 1500)
-            print("territory reward:", (new_size - old_player_size[agent]) / (self.game.n_grid_rows * self.game.n_grid_columns))
+            rewards[agent] = (new_size - old_player_size[agent]) / (
+                self.game.n_grid_rows * self.game.n_grid_columns
+            )
+            rewards[agent] += (
+                (new_money - old_player_money[agent])
+                / (self.game.n_grid_rows * self.game.n_grid_columns)
+                / 1000
+            )
 
             terminations[agent] = not is_alive or is_won
             truncations[agent] = False
             infos[agent] = {}
-            
+
             obs[agent] = self.observe(agent)
 
-            if terminations[agent]: # agent is removed later
+            if terminations[agent]:  # agent is removed later
                 place = len(self.agents)
-                # 0.5 for first, -0.5 for last and linear
-                rewards[agent] += (place - self.game.n_players) / (1 - self.game.n_players) - 0.5
+                # 1 for first, -1 for last, linear in between
+                rewards[agent] += (
+                    2 * (place - self.game.n_players) / (1 - self.game.n_players) - 1
+                )
 
-        
         self.truncations = truncations
         self.terminations = terminations
 
