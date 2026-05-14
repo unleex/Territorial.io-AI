@@ -131,7 +131,7 @@ class CustomEnvironment(ParallelEnv):
             for _ in range(self.obs_stack_size):
                 self.map_obs_deque[agent].append(np.zeros(unstacked_obs_shape, dtype=np.float32))
 
-    def _get_observation_frame(self, agent=None):
+    def _get_observation_frame(self, agent):
         board = np.array(self.game.board)
         permuted_board = np.full(board.shape, -1)
         for original_id in range(-1, self.game.n_players):
@@ -154,7 +154,6 @@ class CustomEnvironment(ParallelEnv):
                 )
             # else: player is dead → stays 0.0
         # Transpose to (Channels, Height, Width) for PyTorch/CNN compatibility
-        stats.clip(stats, 0.0, 1.0)
         return {
             "observations": one_hot.transpose(2, 0, 1),
             "stats": stats,
@@ -188,7 +187,7 @@ class CustomEnvironment(ParallelEnv):
             self._update_frames(agent)
         return {agent : self.observe(agent) for agent in self.possible_agents}, {agent : {} for agent in self.possible_agents}
 
-    def get_action_mask(self, agent=None):
+    def get_action_mask(self, agent):
         target_mask = np.zeros(self.game.n_players + 1, dtype=np.float32)
 
         if agent in self.game.id_to_country:
@@ -198,16 +197,12 @@ class CustomEnvironment(ParallelEnv):
         commit_mask = np.ones(self.n_commit_bins, dtype=np.float32)
         return np.concatenate([target_mask, commit_mask])
 
-    def _update_frames(self, agent=None):
+    def _update_frames(self, agent):
         obs = self._get_observation_frame(agent)
         self.map_obs_deque[agent].append(obs["observations"])
         self.saved_stats[agent] = obs["stats"]
 
     def step(self, action: Dict[int, Any]):
-        if not self.agents:
-            return {}, {}, {}, {}, {}
-        # 0 is neutral, others are agents
-
         old_player_size = {agent : (self.game.id_to_country[agent].size if agent in self.game.id_to_country else 0) for agent in self.possible_agents}
 
         for agent in self.agents:

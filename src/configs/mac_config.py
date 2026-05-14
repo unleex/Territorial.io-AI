@@ -25,8 +25,8 @@ config = (
         model={"custom_model": MODEL_NAME},
     )
     .multi_agent(
-        policies={"shared_policy"},
-        policy_mapping_fn=(lambda aid, *args, **kwargs: "shared_policy"),
+        policies={"p0"},
+        policy_mapping_fn=(lambda aid, *args, **kwargs: "p0"),
     )
     .debugging(log_level="INFO")
     .framework(framework="torch")
