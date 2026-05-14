@@ -204,6 +204,7 @@ class CustomEnvironment(ParallelEnv):
 
     def step(self, action: Dict[int, Any]):
         old_player_size = {agent : (self.game.id_to_country[agent].size if agent in self.game.id_to_country else 0) for agent in self.possible_agents}
+        old_player_money = {agent : (self.game.id_to_country[agent].money if agent in self.game.id_to_country else 0) for agent in self.possible_agents}
 
         for agent in self.agents:
             if agent not in self.game.id_to_country : continue
@@ -227,18 +228,23 @@ class CustomEnvironment(ParallelEnv):
             is_won = is_alive and len(self.game.id_to_country) == 1
 
             new_size = self.game.id_to_country[agent].size if is_alive else 0
+            new_money = self.game.id_to_country[agent].money if is_alive else 0
             rewards[agent] = (new_size - old_player_size[agent]) / (self.game.n_grid_rows * self.game.n_grid_columns)
+            rewards[agent] += (new_money - old_player_money[agent]) / (self.game.n_grid_rows * self.game.n_grid_columns) / 1500
+            print("money reward:",  (new_money - old_player_money[agent]) / (self.game.n_grid_rows * self.game.n_grid_columns) / 1500)
+            print("territory reward:", (new_size - old_player_size[agent]) / (self.game.n_grid_rows * self.game.n_grid_columns))
+
             terminations[agent] = not is_alive or is_won
             truncations[agent] = False
             infos[agent] = {}
             
             obs[agent] = self.observe(agent)
 
-            if terminations[agent]:
-                if is_alive:
-                    rewards[agent] += 0.5
-                else:
-                    rewards[agent] -= 0.5
+            if terminations[agent]: # agent is removed later
+                place = len(self.agents)
+                # 0.5 for first, -0.5 for last and linear
+                rewards[agent] += (place - self.game.n_players) / (1 - self.game.n_players) - 0.5
+
         
         self.truncations = truncations
         self.terminations = terminations
