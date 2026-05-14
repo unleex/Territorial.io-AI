@@ -4,6 +4,7 @@ from pathlib import Path
 from ray import tune
 from config import config, NUM_GPUS, NUM_CPUS
 import ray
+from log import RUN_NAME
 
 
 def train():
@@ -11,8 +12,8 @@ def train():
     storage_uri = (Path("logs") / ENV_NAME).expanduser().resolve().as_uri()
     tune.run(
         "PPO",
-        name="PPO",
-        stop={"timesteps_total": 8_000_000},
+        name=RUN_NAME,
+        stop={"timesteps_total": 4_000_000},
         checkpoint_freq=10,
         storage_path=storage_uri,
         config=config.to_dict(),

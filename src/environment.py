@@ -229,7 +229,7 @@ class CustomEnvironment(ParallelEnv):
 
     def render(self, targeted_player=-1, commited=0, **kwargs):
         self.renderer.update(
-            np.array(self.game.board),
+            self.game.board,
             self.game.n_players,
             targeted_player,
             commited,

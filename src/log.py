@@ -10,7 +10,8 @@ from matplotlib.colors import to_rgb
 from ray.rllib.env.env_runner import EnvRunner
 import os
 
-VIDEO_LOG_DIR = (Path("logs") / ENV_NAME / "PPO" / "videos").expanduser()
+RUN_NAME = "ChonkyNet"
+VIDEO_LOG_DIR = (Path("logs") / ENV_NAME / RUN_NAME / "videos").expanduser()
 VIDEO_LOG_DIR.mkdir(exist_ok=True, parents=True)
 if "video_logdir" not in os.environ:
     logdir = VIDEO_LOG_DIR / datetime.now().strftime("%Y-%m-%d_%H-%M-%S")

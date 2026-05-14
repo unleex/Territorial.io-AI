@@ -50,6 +50,8 @@ class MultiDiscreteActionMaskModel(TorchModelV2, nn.Module):
             nn.ReLU(),
             nn.Linear(1024, 512),
             nn.ReLU(),
+            nn.Linear(512, 512),
+            nn.ReLU(),
         )
         self.policy_head = nn.Linear(512, num_outputs)
         self.value_head = nn.Linear(512, 1)
