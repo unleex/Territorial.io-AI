@@ -203,6 +203,7 @@ class CustomEnvironment(ParallelEnv):
         target = self.unpermute_id(target)
 
         old_player_size = self.game.id_to_country[self.agent_id].size
+        old_money = self.game.id_to_country[self.agent_id].money
         self.game.id_to_country[self.agent_id].attackInit(self.game, target, commited)
         for _ in range(self.ticks_delta):
             self.game.tick()
@@ -212,16 +213,26 @@ class CustomEnvironment(ParallelEnv):
         reward = {
             0: (self.game.id_to_country[self.agent_id].size - old_player_size)
             / (self.game.n_grid_rows * self.game.n_grid_columns)
+            + (self.game.id_to_country[self.agent_id].money - old_money)
+            / (self.game.n_grid_rows * self.game.n_grid_columns)
+            / 1000
         }
         self.terminations[0] = (
             self.game.id_to_country[self.agent_id].size == 0
             or len(self.game.id_to_country) == 1
         )
         if self.terminations[0]:
-            if self.game.id_to_country[self.agent_id].size > 0:
-                reward[0] += 0.1
+            alive = np.unique(self.game.board)
+            n_alive = len(alive)
+            if -1 in alive:
+                n_alive -= 1
+            if self.game.id_to_country[0].size > 0:
+                place = 1
             else:
-                reward[0] -= 0.5
+                place = n_alive + 1
+            reward[0] += (
+                2 * (place - self.game.n_players) / (1 - self.game.n_players) - 1
+            )
 
         if self.terminations[0]:
             self.agents = []
@@ -229,7 +240,7 @@ class CustomEnvironment(ParallelEnv):
 
     def render(self, targeted_player=-1, commited=0, **kwargs):
         self.renderer.update(
-            self.game.board,
+            np.array(self.game.board),
             self.game.n_players,
             targeted_player,
             commited,
