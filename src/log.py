@@ -9,8 +9,10 @@ import imageio.v2 as imageio
 from matplotlib.colors import to_rgb
 from ray.rllib.env.env_runner import EnvRunner
 import os
+from ray.rllib.evaluation.episode_v2 import EpisodeV2
 
-RUN_NAME = "ChonkyNet"
+RUN_NAME = "TEST_Place"
+VIDEO_SAVE_FREQ = 200
 VIDEO_LOG_DIR = (Path("logs") / ENV_NAME / RUN_NAME / "videos").expanduser()
 VIDEO_LOG_DIR.mkdir(exist_ok=True, parents=True)
 if "video_logdir" not in os.environ:
@@ -69,7 +71,7 @@ class VideoCallback(RLlibCallback):
     def __init__(self):
         super().__init__()
         self.logdir: str = os.environ["video_logdir"]
-        self.save_freq = 40
+        self.save_freq = VIDEO_SAVE_FREQ
         self.episode_counter = 0
 
     def on_episode_start(self, *, episode, worker: EnvRunner, **kwargs):
@@ -98,7 +100,8 @@ class VideoCallback(RLlibCallback):
 
         episode.user_data["frames"].append(frame)
 
-    def on_episode_end(self, *, episode, **kwargs):
+    def on_episode_end(self, *, episode: EpisodeV2, **kwargs):
+        episode.custom_metrics["place"] = episode.last_info_for(0)["place"]
         if not episode.user_data.get("record"):
             return
 
