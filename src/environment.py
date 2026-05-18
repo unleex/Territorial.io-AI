@@ -88,6 +88,9 @@ class CustomEnvironment(ParallelEnv):
             })
             for agent in self.possible_agents
         }
+
+        self.max_steps = 1000
+        self.current_step = 0
         
         self._prepare()
     
@@ -177,6 +180,7 @@ class CustomEnvironment(ParallelEnv):
         self, seed: Optional[int] = None, options: Optional[Dict[str, Any]] = None
     ):
         self._prepare()
+        self.current_step = 0
         self.agents = self.possible_agents[:]
         self.terminations = {agent: False for agent in self.possible_agents}
         self.truncations = {agent: False for agent in self.possible_agents}
@@ -205,6 +209,8 @@ class CustomEnvironment(ParallelEnv):
     def step(self, action: Dict[int, Any]):
         old_player_size = {agent : (self.game.id_to_country[agent].size if agent in self.game.id_to_country else 0) for agent in self.possible_agents}
         old_player_money = {agent : (self.game.id_to_country[agent].money if agent in self.game.id_to_country else 0) for agent in self.possible_agents}
+        self.current_step += 1
+        is_timeout = self.current_step >= self.max_steps
 
         for agent in self.agents:
             if agent not in self.game.id_to_country : continue
@@ -230,12 +236,10 @@ class CustomEnvironment(ParallelEnv):
             new_size = self.game.id_to_country[agent].size if is_alive else 0
             new_money = self.game.id_to_country[agent].money if is_alive else 0
             rewards[agent] = (new_size - old_player_size[agent]) / (self.game.n_grid_rows * self.game.n_grid_columns)
-            rewards[agent] += (new_money - old_player_money[agent]) / (self.game.n_grid_rows * self.game.n_grid_columns) / 1500
-            print("money reward:",  (new_money - old_player_money[agent]) / (self.game.n_grid_rows * self.game.n_grid_columns) / 1500)
-            print("territory reward:", (new_size - old_player_size[agent]) / (self.game.n_grid_rows * self.game.n_grid_columns))
+            rewards[agent] += (new_money - old_player_money[agent]) / (self.game.n_grid_rows * self.game.n_grid_columns) / 1000
 
             terminations[agent] = not is_alive or is_won
-            truncations[agent] = False
+            truncations[agent] = is_timeout if is_alive else False
             infos[agent] = {}
             
             obs[agent] = self.observe(agent)
