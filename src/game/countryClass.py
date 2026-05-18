@@ -72,7 +72,7 @@ class country:
         self.money = min(self.size * 1500, self.money)
 
     # Returns true if cell is in country being attacked and is neighbor of
-    # attacking country
+    # attacking country (unused function)
     def isNeighbour(self, game: "Game", id, i, j):
         if (
             game.board[i][j] == id
