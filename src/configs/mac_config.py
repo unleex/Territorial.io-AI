@@ -11,16 +11,16 @@ config = (
         disable_env_checking=False,
     )
     .training(
-        train_batch_size=256,
+        train_batch_size=1,
         lr=2e-5,
-        gamma=0.99,
+        gamma=0.999,
         lambda_=0.9,
         use_gae=True,
         clip_param=0.4,
         grad_clip=0.5,
         entropy_coeff=0.1,
         vf_loss_coeff=0.25,
-        minibatch_size=128,
+        minibatch_size=1,
         num_epochs=10,
         model={"custom_model": MODEL_NAME},
     )

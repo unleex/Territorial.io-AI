@@ -162,6 +162,9 @@ class CustomEnvironment(ParallelEnv):
                 )
             # else: player is dead → stays 0.0
         # Transpose to (Channels, Height, Width) for PyTorch/CNN compatibility
+        if (stats < 0).any():
+            print("negative ass", stats)
+        stats = np.clip(stats, 0.0, 1.0)
         return {
             "observations": one_hot.transpose(2, 0, 1),
             "stats": stats,
