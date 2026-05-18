@@ -3,6 +3,7 @@ from model import MODEL_NAME
 from prepare_env import ENV_NAME
 from log import VideoCallback
 
+CONFIG_NAME = "MAC"
 config = (
     PPOConfig()
     .environment(
@@ -11,7 +12,7 @@ config = (
         disable_env_checking=False,
     )
     .training(
-        train_batch_size=1,
+        train_batch_size=256,
         lr=2e-5,
         gamma=0.999,
         lambda_=0.9,
@@ -20,7 +21,7 @@ config = (
         grad_clip=0.5,
         entropy_coeff=0.1,
         vf_loss_coeff=0.25,
-        minibatch_size=1,
+        minibatch_size=64,
         num_epochs=10,
         model={"custom_model": MODEL_NAME},
     )

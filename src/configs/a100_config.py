@@ -3,6 +3,7 @@ from model import MODEL_NAME
 from prepare_env import ENV_NAME
 from log import VideoCallback
 
+CONFIG_NAME = "A100"
 config = (
     PPOConfig()
     .environment(

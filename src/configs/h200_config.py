@@ -3,6 +3,7 @@ from model import MODEL_NAME
 from prepare_env import ENV_NAME
 from log import VideoCallback
 
+CONFIG_NAME = "H200"
 config = (
     PPOConfig()
     .environment(
@@ -11,7 +12,7 @@ config = (
         disable_env_checking=False,
     )
     .training(
-        train_batch_size=16_384,
+        train_batch_size=32_768,
         lr=5e-5,
         gamma=0.99,
         lambda_=0.9,
@@ -37,7 +38,7 @@ config = (
     .callbacks(VideoCallback)
     .resources(num_gpus=1)
     .env_runners(
-        num_env_runners=4, num_envs_per_env_runner=8, num_cpus_per_env_runner=2
+        num_env_runners=8, num_envs_per_env_runner=4, num_cpus_per_env_runner=2
     )
     .learners(
         num_gpus_per_learner=1,

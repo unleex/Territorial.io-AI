@@ -10,7 +10,7 @@ from matplotlib.colors import to_rgb
 from ray.rllib.env.env_runner import EnvRunner
 import os
 
-RUN_NAME = "ChonkyNet"
+RUN_NAME = "Multiagency"
 VIDEO_LOG_DIR = (Path("logs") / ENV_NAME / RUN_NAME / "videos").expanduser()
 VIDEO_LOG_DIR.mkdir(exist_ok=True, parents=True)
 if "video_logdir" not in os.environ:
