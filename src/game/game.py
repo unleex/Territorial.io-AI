@@ -27,7 +27,7 @@ class Game:
         self.n_grid_columns = grid_columns
         for i in range(self.n_grid_rows):
             board.append([-1] * self.n_grid_columns)
-        self.board = np.array(board)
+        self.board = np.array(board, dtype=np.int8)
         for i in range(self.n_players):
             row = random.randint(0, self.n_grid_rows - 1)
             col = random.randint(0, self.n_grid_columns - 1)
