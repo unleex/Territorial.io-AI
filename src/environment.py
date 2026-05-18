@@ -247,7 +247,7 @@ class CustomEnvironment(ParallelEnv):
             rewards[agent] += (new_money - old_player_money[agent]) / (self.game.n_grid_rows * self.game.n_grid_columns) / 1000
 
             terminations[agent] = not is_alive or is_won
-            truncations[agent] = is_timeout if is_alive else False
+            truncations[agent] = False
             infos[agent] = {}
             
             obs[agent] = self.observe(agent)
