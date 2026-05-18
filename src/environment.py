@@ -93,6 +93,9 @@ class CustomEnvironment(ParallelEnv):
             for agent in self.possible_agents
         }
 
+        self.max_steps = 1000
+        self.current_step = 0
+        
         self._prepare()
 
     def _build_permutations(self, agent):
@@ -185,6 +188,7 @@ class CustomEnvironment(ParallelEnv):
         self, seed: Optional[int] = None, options: Optional[Dict[str, Any]] = None
     ):
         self._prepare()
+        self.current_step = 0
         self.agents = self.possible_agents[:]
         self.terminations = {agent: False for agent in self.possible_agents}
         self.truncations = {agent: False for agent in self.possible_agents}
@@ -243,9 +247,11 @@ class CustomEnvironment(ParallelEnv):
             rewards[agent] += (new_money - old_player_money[agent]) / (self.game.n_grid_rows * self.game.n_grid_columns) / 1000
             # print("money reward:",  (new_money - old_player_money[agent]) / (self.game.n_grid_rows * self.game.n_grid_columns) / 1000)
             # print("territory reward:", (new_size - old_player_size[agent]) / (self.game.n_grid_rows * self.game.n_grid_columns))
+            rewards[agent] = (new_size - old_player_size[agent]) / (self.game.n_grid_rows * self.game.n_grid_columns)
+            rewards[agent] += (new_money - old_player_money[agent]) / (self.game.n_grid_rows * self.game.n_grid_columns) / 1000
 
             terminations[agent] = not is_alive or is_won
-            truncations[agent] = False
+            truncations[agent] = is_timeout if is_alive else False
             infos[agent] = {}
             
             obs[agent] = self.observe(agent)
