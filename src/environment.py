@@ -92,9 +92,6 @@ class CustomEnvironment(ParallelEnv):
             )
             for agent in self.possible_agents
         }
-
-        self.max_steps = 1000
-        self.current_step = 0
         
         self._prepare()
 
@@ -188,7 +185,6 @@ class CustomEnvironment(ParallelEnv):
         self, seed: Optional[int] = None, options: Optional[Dict[str, Any]] = None
     ):
         self._prepare()
-        self.current_step = 0
         self.agents = self.possible_agents[:]
         self.terminations = {agent: False for agent in self.possible_agents}
         self.truncations = {agent: False for agent in self.possible_agents}
