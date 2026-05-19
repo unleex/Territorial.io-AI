@@ -45,14 +45,15 @@ class Game:
         L = []
         for key in self.id_to_country:
             L.append(key)
+        anyone_alive = False
         for key in L:
             if self.id_to_country[key].size <= 0:
-                if key == 0:
-                    self.gameOver = True
-                    break
                 del self.id_to_country[key]
                 continue
+            anyone_alive = True
             self.id_to_country[key].updateMoney()
             if key not in self.agents:
                 runAi(self, self.id_to_country[key])
             self.id_to_country[key].incrementAttacks(self)
+        if not anyone_alive:
+            self.gameOver = True
