@@ -12,7 +12,6 @@ from game.gameFuncs import findNeighbours
 # mock_info = {0: {}}
 
 
-# TODO multiple agents. For simplicity, now let's fit single agent to algorithmic baseline
 # TODO multiple agents: create a pool of agents and bootstrap
 # them each time for more diversity!
 
@@ -74,7 +73,7 @@ class CustomEnvironment(ParallelEnv):
                         low=-1,
                         high=1,
                         shape=obs_shape,
-                        dtype=np.float32,
+                        dtype=np.int8,
                     ),
                     "stats": spaces.Box(
                         low=0,
@@ -96,6 +95,8 @@ class CustomEnvironment(ParallelEnv):
         self._prepare()
 
     def _build_permutations(self, agent):
+        # Maps original ids in [-1, n_players - 1] to [0, n_players].
+        # Array index for original_id is (original_id + 1).
         id_perm = np.zeros(self.game.n_players + 1, dtype=int)
         id_perm[agent + 1] = 1
         others = [
@@ -125,8 +126,6 @@ class CustomEnvironment(ParallelEnv):
             self.game.n_grid_columns,
         )
 
-        # Maps original ids in [-1, n_players - 1] to [0, n_players].
-        # Array index for original_id is (original_id + 1).
         for agent in self.possible_agents:
             perm, reverse_perm = self._build_permutations(agent)
             self.id_permutation[agent] = perm
@@ -136,7 +135,7 @@ class CustomEnvironment(ParallelEnv):
 
             for _ in range(self.obs_stack_size):
                 self.map_obs_deque[agent].append(
-                    np.zeros(unstacked_obs_shape, dtype=np.float32)
+                    np.zeros(unstacked_obs_shape, dtype=np.int8)
                 )
 
     def _get_observation_frame(self, agent):
@@ -146,7 +145,7 @@ class CustomEnvironment(ParallelEnv):
             permuted_board[board == original_id] = self.permute_id(original_id, agent)
 
         num_channels = self.game.n_players + 1
-        one_hot = np.eye(num_channels, dtype=np.float32)[permuted_board]
+        one_hot = np.eye(num_channels, dtype=np.int8)[permuted_board]
         stats = np.zeros(self.n_stats, dtype=np.float32)
         for perm_idx in range(1, self.game.n_players + 1):
             original_id = self.unpermute_id(perm_idx, agent)
@@ -186,7 +185,7 @@ class CustomEnvironment(ParallelEnv):
     def reset(
         self, seed: Optional[int] = None, options: Optional[Dict[str, Any]] = None
     ):
-        self.max_steps = 1000
+        self.max_steps = 500
         self.current_step = 0
         self._prepare()
         self.current_step = 0
@@ -272,8 +271,6 @@ class CustomEnvironment(ParallelEnv):
                 / (self.game.n_grid_rows * self.game.n_grid_columns)
                 / 1000
             )
-            # print("money reward:",  (new_money - old_player_money[agent]) / (self.game.n_grid_rows * self.game.n_grid_columns) / 1000)
-            # print("territory reward:", (new_size - old_player_size[agent]) / (self.game.n_grid_rows * self.game.n_grid_columns))
             rewards[agent] = (new_size - old_player_size[agent]) / (
                 self.game.n_grid_rows * self.game.n_grid_columns
             )
