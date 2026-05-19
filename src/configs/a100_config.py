@@ -12,7 +12,7 @@ config = (
         disable_env_checking=False,
     )
     .training(
-        train_batch_size=32_768 // 8,
+        train_batch_size=32_768 // 4,
         lr=5e-5,
         gamma=0.99,
         lambda_=0.9,
@@ -21,7 +21,7 @@ config = (
         grad_clip=0.5,
         entropy_coeff=0.1,
         vf_loss_coeff=0.25,
-        minibatch_size=8192 // 2,
+        minibatch_size=8192,
         num_epochs=15,
         model={"custom_model": MODEL_NAME},
     )
@@ -38,7 +38,7 @@ config = (
     .callbacks(VideoCallback)
     .resources(num_gpus=1)
     .env_runners(
-        num_env_runners=8, num_envs_per_env_runner=1, num_cpus_per_env_runner=2
+        num_env_runners=6, num_envs_per_env_runner=2, num_cpus_per_env_runner=3
     )
     .learners(
         num_gpus_per_learner=1,

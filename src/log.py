@@ -13,6 +13,8 @@ import os
 RUN_NAME = "Multiagency"
 VIDEO_LOG_DIR = (Path("logs") / ENV_NAME / RUN_NAME / "videos").expanduser()
 VIDEO_LOG_DIR.mkdir(exist_ok=True, parents=True)
+VIDEO_SAVE_FREQ = 40
+EVALUATION = False
 if "video_logdir" not in os.environ:
     logdir = VIDEO_LOG_DIR / datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     logdir.mkdir(exist_ok=True, parents=True)
@@ -73,7 +75,9 @@ class VideoCallback(RLlibCallback):
         self.episode_counter = 0
 
     def on_episode_start(self, *, episode, worker: EnvRunner, **kwargs):
-        record = self.episode_counter % self.save_freq == 0 and worker.worker_index == 1
+        record = self.episode_counter % self.save_freq == 0 and (
+            worker.worker_index == 1 or EVALUATION
+        )
         episode.user_data["record"] = record
         episode.user_data["frames"] = []
         self.episode_counter += 1
@@ -107,5 +111,4 @@ class VideoCallback(RLlibCallback):
         if frames:
             fname = f"episode_{self.episode_counter}_{episode.episode_id}.mp4"
             imageio.mimsave(Path(self.logdir) / fname, frames, fps=8)
-            # Crucial: Clear the list to free up the 188GB system RAM
             frames.clear()
