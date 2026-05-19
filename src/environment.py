@@ -271,7 +271,6 @@ class CustomEnvironment(ParallelEnv):
                 / (self.game.n_grid_rows * self.game.n_grid_columns)
                 / 1000
             )
-            rewards[agent] -= 0.001
             terminations[agent] = not is_alive or won
             truncations[agent] = is_timeout if is_alive else False
             infos[agent] = {}
