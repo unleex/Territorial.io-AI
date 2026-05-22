@@ -1,12 +1,11 @@
-from ray.rllib.algorithms.ppo import PPOConfig
 from model import MODEL_NAME
 from prepare_env import ENV_NAME
 from log import VideoCallback
+from configs.common import config
 
 CONFIG_NAME = "H200"
 config = (
-    PPOConfig()
-    .environment(
+    config.environment(
         env=ENV_NAME,
         clip_actions=True,
         disable_env_checking=False,
