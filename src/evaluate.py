@@ -10,8 +10,8 @@ if __name__ == "__main__":
         evaluation_duration_unit="episodes",
     )
     algo = config.build_algo()
-    # algo.restore(
-    #     "/home2/mrgaschenko/Territorial.io-AI/logs/custom_env/ChonkyNet/PPO_custom_env_55c63_00000_0_2026-05-15_06-51-21/checkpoint_000007"
-    # )
+    algo.restore(
+        "/home2/mrgaschenko/Territorial.io-AI/logs/custom_env/Multiagency/PPO_custom_env_6f21c_00000_0_2026-05-20_16-33-06/checkpoint_000000"
+    )
     with open("evaluation_results.py", "w+") as out:
         pprint(algo.evaluate(), stream=out)

@@ -185,7 +185,7 @@ class CustomEnvironment(ParallelEnv):
     def reset(
         self, seed: Optional[int] = None, options: Optional[Dict[str, Any]] = None
     ):
-        self.max_steps = 500
+        self.max_steps = 1000
         self.current_step = 0
         self._prepare()
         self.current_step = 0
@@ -279,7 +279,7 @@ class CustomEnvironment(ParallelEnv):
 
             if terminations[agent]:  # agent is removed later
                 place = len(self.agents)
-                # 1for first, -1 for last and linear
+                # 1 for first, -1 for last and linear
                 rewards[agent] += (
                     2 * (place - self.game.n_players) / (1 - self.game.n_players) - 1
                 )

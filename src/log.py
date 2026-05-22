@@ -13,7 +13,7 @@ import os
 RUN_NAME = "Multiagency"
 VIDEO_LOG_DIR = (Path("logs") / ENV_NAME / RUN_NAME / "videos").expanduser()
 VIDEO_LOG_DIR.mkdir(exist_ok=True, parents=True)
-VIDEO_SAVE_FREQ = 40
+VIDEO_SAVE_FREQ = 5
 EVALUATION = False
 if "video_logdir" not in os.environ:
     logdir = VIDEO_LOG_DIR / datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
@@ -71,7 +71,7 @@ class VideoCallback(RLlibCallback):
     def __init__(self):
         super().__init__()
         self.logdir: str = os.environ["video_logdir"]
-        self.save_freq = 40
+        self.save_freq = VIDEO_SAVE_FREQ
         self.episode_counter = 0
 
     def on_episode_start(self, *, episode, worker: EnvRunner, **kwargs):
