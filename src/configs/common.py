@@ -15,6 +15,8 @@ config = (
         policy_mapping_fn=(lambda aid, *args, **kwargs: "p0"),
         count_steps_by="agent_steps",
         policies_to_train=["p0"],
+        policy_map_capacity=10,
+        policy_states_are_swappable=True,
     )
     .debugging(log_level="WARN")
     .framework(framework="torch")
