@@ -54,7 +54,6 @@ def runAi(game: "Game", agent: "country"):
             or game.id_to_country[i].money < game.id_to_country[smallest].money
         ):
             smallest = i
-    ...
     # If the smallest neighbour is signifcantly smaller
     density = game.id_to_country[smallest].money / game.id_to_country[smallest].size
     if (
