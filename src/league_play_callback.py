@@ -39,9 +39,9 @@ class LeaguePlayCallback(DefaultCallbacks):
         self, *, worker, base_env, policies, episode: EpisodeV2, env_index, **kwargs
     ):
         places = episode.user_data["places"]
-        episode.custom_metrics["best_place"] = float(min(places.values()))
+        episode.custom_metrics["avg_place"] = float(np.mean(list(places.values())))
 
-    def update_league(self, algorithm):
+    def update_league(self, algorithm: Algorithm):
         self.current_opponent += 1
         new_policy_id = f"p0_v{self.current_opponent}"
         print(f"Snapshotting {new_policy_id} to league...")
@@ -79,10 +79,8 @@ class LeaguePlayCallback(DefaultCallbacks):
         self.update_league(algorithm)
 
     def on_train_result(self, *, algorithm: Algorithm, result, **kwargs):
-        if algorithm.iteration % 10 != 0:
-            return
         env_runners_dict = result.get("env_runners", {})
         custom_metrics = env_runners_dict.get("custom_metrics", {})
-        avg_best_place = custom_metrics.get("best_place_mean", float("inf"))
+        avg_best_place = custom_metrics.get("avg_place_mean", float("inf"))
         if avg_best_place <= self.avg_place_threshold:
             self.update_league(algorithm)
