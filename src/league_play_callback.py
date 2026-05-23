@@ -6,7 +6,7 @@ from ray.rllib.utils.metrics.metrics_logger import MetricsLogger
 
 
 class LeaguePlayCallback(DefaultCallbacks):
-    def __init__(self, avg_place_threshold=0.4):
+    def __init__(self, avg_place_threshold=3):
         super().__init__()
         self.current_opponent = 0
         self.avg_place_threshold = avg_place_threshold
@@ -66,5 +66,5 @@ class LeaguePlayCallback(DefaultCallbacks):
         custom_metrics = result.get("custom_metrics", {})
         avg_best_place = custom_metrics.get("best_place_mean", -1.0)
 
-        if avg_best_place > self.avg_place_threshold:
+        if avg_best_place >= self.avg_place_threshold:
             self.update_policies(algorithm)

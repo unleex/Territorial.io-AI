@@ -5,8 +5,7 @@ from league_play_callback import LeaguePlayCallback
 
 class MergedCallback(RLlibCallback):
     def __init__(self):
-        # 2nd place
-        self.callbacks = [VideoCallback(), LeaguePlayCallback(avg_place_threshold=0.4)]
+        self.callbacks = [VideoCallback(), LeaguePlayCallback(avg_place_threshold=3)]
 
     def on_episode_start(self, **kwargs):
         for cb in self.callbacks:
