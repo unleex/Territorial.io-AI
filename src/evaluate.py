@@ -1,4 +1,4 @@
-from configs.mac_config import config
+from configs.test_config import config
 import log
 from pprint import pprint
 
