@@ -6,10 +6,11 @@ from ray.rllib.utils.metrics.metrics_logger import MetricsLogger
 
 
 class LeaguePlayCallback(DefaultCallbacks):
-    def __init__(self, avg_place_threshold=3):
+    def __init__(self, avg_place_threshold=3, n_trainable_players=3):
         super().__init__()
         self.current_opponent = 0
         self.avg_place_threshold = avg_place_threshold
+        self.n_trainable_players = n_trainable_players
 
     def on_episode_step(self, *, episode: EpisodeV2, **kwargs):
         episode.user_data["places"] = []
@@ -25,7 +26,7 @@ class LeaguePlayCallback(DefaultCallbacks):
         places = episode.user_data["places"]
         episode.custom_metrics["best_place"] = float(min(places))
 
-    def update_policies(self, algorithm):
+    def update_league(self, algorithm):
         self.current_opponent += 1
         new_policy_id = f"p0_v{self.current_opponent}"
         print(f"Snapshotting {new_policy_id} to league...")
@@ -43,10 +44,10 @@ class LeaguePlayCallback(DefaultCallbacks):
         algorithm.set_weights({new_policy_id: main_policy.get_weights()})
 
         def mapping_fn(agent_id, episode: EpisodeV2, **kwargs):
-            if agent_id == 0:
+            if agent_id in range(self.n_trainable_players):
                 return "p0"
             rng = np.random.default_rng(hash(episode.episode_id) + agent_id)
-            pool = ["p0"] + [f"p0_v{i}" for i in range(1, self.current_opponent + 1)]
+            pool = [f"p0_v{i}" for i in range(1, self.current_opponent + 1)]
             return rng.choice(pool)
 
         algorithm.env_runner_group.foreach_env_runner(
@@ -60,11 +61,9 @@ class LeaguePlayCallback(DefaultCallbacks):
         metrics_logger: MetricsLogger | None = None,
         **kwargs,
     ) -> None:
-        self.update_policies(algorithm)
+        self.update_league(algorithm)
 
     def on_train_result(self, *, algorithm: Algorithm, result, **kwargs):
-        custom_metrics = result.get("custom_metrics", {})
-        avg_best_place = custom_metrics.get("best_place_mean", float("inf"))
-
+        avg_best_place = result["custom_metrics"].get("best_place_mean", float("inf"))
         if avg_best_place <= self.avg_place_threshold:
-            self.update_policies(algorithm)
+            self.update_league(algorithm)

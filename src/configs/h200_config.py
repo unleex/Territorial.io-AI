@@ -1,5 +1,4 @@
 from model import MODEL_NAME
-from prepare_env import ENV_NAME
 from configs.common import config
 
 CONFIG_NAME = "H200"
