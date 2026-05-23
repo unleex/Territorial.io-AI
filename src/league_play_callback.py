@@ -1,92 +1,70 @@
-from collections import defaultdict
 import numpy as np
-from ray.rllib.callbacks.callbacks import RLlibCallback
+from ray.rllib.algorithms.callbacks import DefaultCallbacks
+from ray.rllib.algorithms import Algorithm
+from ray.rllib.evaluation.episode_v2 import EpisodeV2
+from ray.rllib.utils.metrics.metrics_logger import MetricsLogger
 
 
-class LeaguePlayCallback(RLlibCallback):
-    def __init__(self, win_rate_threshold=0.6):
+class LeaguePlayCallback(DefaultCallbacks):
+    def __init__(self, avg_place_threshold=0.4):
         super().__init__()
         self.current_opponent = 0
-        self.win_rate_threshold = win_rate_threshold
-        self._matching_stats = defaultdict(int)
+        self.avg_place_threshold = avg_place_threshold
+
+    def on_episode_step(self, *, episode: EpisodeV2, **kwargs):
+        episode.user_data["places"] = []
+        for agent_id in episode.get_agents():
+            if episode.policy_for(agent_id) == "p0":
+                info = episode.last_info_for(agent_id=agent_id)
+                if "place" in info:
+                    episode.user_data["places"].append(info["place"])
 
     def on_episode_end(
-        self, *, worker, base_env, policies, episode, env_index, **kwargs
+        self, *, worker, base_env, policies, episode: EpisodeV2, env_index, **kwargs
     ):
-        # Legacy signature uses policy_for() instead of module_for()
-        main_agents = [
-            agent_id
-            for agent_id in episode.get_agents()
-            if episode.policy_for(agent_id) == "main"
-        ]
+        places = episode.user_data["places"]
+        episode.custom_metrics["best_place"] = float(min(places))
 
-        if not main_agents:
-            return
+    def update_policies(self, algorithm):
+        self.current_opponent += 1
+        new_policy_id = f"p0_v{self.current_opponent}"
+        print(f"Snapshotting {new_policy_id} to league...")
 
-        main_won = False
-        # Check agent rewards via legacy episode dictionary tracking
-        for agent in main_agents:
-            # RLlib stores legacy rewards keyed by (agent_id, policy_id)
-            if episode.agent_rewards.get((agent, "main"), 0.0) == 1.0:
-                main_won = True
-                break
+        main_policy = algorithm.get_policy("p0")
 
-        # Populate custom_metrics so Tune automatically routes it to results
-        episode.custom_metrics["win_rate"] = float(main_won)
+        algorithm.add_policy(
+            policy_id=new_policy_id,
+            policy_cls=type(main_policy),
+            observation_space=main_policy.observation_space,
+            action_space=main_policy.action_space,
+            config=main_policy.config,
+        )
 
-    def on_train_result(self, *, algorithm, result, **kwargs):
-        # Legacy RLlib places metrics in the "custom_metrics" root key
+        algorithm.set_weights({new_policy_id: main_policy.get_weights()})
+
+        def mapping_fn(agent_id, episode: EpisodeV2, **kwargs):
+            if agent_id == 0:
+                return "p0"
+            rng = np.random.default_rng(hash(episode.episode_id) + agent_id)
+            pool = ["p0"] + [f"p0_v{i}" for i in range(1, self.current_opponent + 1)]
+            return rng.choice(pool)
+
+        algorithm.env_runner_group.foreach_env_runner(
+            lambda w: w.set_policy_mapping_fn(mapping_fn)
+        )
+
+    def on_algorithm_init(
+        self,
+        *,
+        algorithm: Algorithm,
+        metrics_logger: MetricsLogger | None = None,
+        **kwargs,
+    ) -> None:
+        self.update_policies(algorithm)
+
+    def on_train_result(self, *, algorithm: Algorithm, result, **kwargs):
         custom_metrics = result.get("custom_metrics", {})
-        win_rate = custom_metrics.get("win_rate_mean", 0.0)
+        avg_best_place = custom_metrics.get("best_place_mean", -1.0)
 
-        print(f"\n[Tune Callback] Iter={algorithm.iteration} Win Rate={win_rate:.2f}")
-        if win_rate > self.win_rate_threshold:
-            self.current_opponent += 1
-            new_module_id = f"p0_v{self.current_opponent}"  # Renamed to match your p0
-            print(f"[Tune Callback] Snapshot to league: {new_module_id}")
-
-            def agent_to_module_mapping_fn(agent_id, episode, **kwargs):
-                # We do NOT map bots here, because your environment engine handles them.
-                # RLlib only passes the IDs of the agents it is allowed to control.
-
-                # Force at least agent 0 (or your first RLlib slot) to ALWAYS be the active learner
-                if agent_id == 0 or self.current_opponent == 0:
-                    return "p0"
-
-                # For any other agents RLlib controls, randomize between active and historical
-                rng = np.random.default_rng(hash(episode.id_) + agent_id)
-                pool = ["p0"] + [
-                    f"p0_v{i}" for i in range(1, self.current_opponent + 1)
-                ]
-
-                return rng.choice(pool)
-
-            # Weight replication logic (same as before, just using "p0")
-            main_module = algorithm.get_module("p0")
-            from ray.rllib.core.rl_module.rl_module import RLModuleSpec
-
-            algorithm.add_module(
-                module_id=new_module_id,
-                module_spec=RLModuleSpec.from_module(main_module),
-                new_agent_to_module_mapping_fn=agent_to_module_mapping_fn,
-            )
-
-            algorithm.set_state(
-                {
-                    "learner_group": {
-                        "learner": {
-                            "rl_module": {
-                                new_module_id: main_module.get_state(),
-                            }
-                        }
-                    }
-                }
-            )
-
-            algorithm.workers.foreach_worker(
-                lambda worker: worker.set_policy_mapping_fn(agent_to_module_mapping_fn)
-            )
-        else:
-            print("[Tune Callback] Continuing current policy mix.")
-
-        result["league_size"] = self.current_opponent + 2
+        if avg_best_place > self.avg_place_threshold:
+            self.update_policies(algorithm)
