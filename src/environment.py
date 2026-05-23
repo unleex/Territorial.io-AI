@@ -285,6 +285,7 @@ class CustomEnvironment(ParallelEnv):
                 rewards[agent] += (
                     2 * (place - self.game.n_players) / (1 - self.game.n_players) - 1
                 )
+                infos[agent] = {"place": place}
 
         self.truncations = truncations
         self.terminations = terminations

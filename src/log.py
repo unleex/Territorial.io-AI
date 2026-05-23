@@ -11,7 +11,7 @@ from ray.rllib.env.env_runner import EnvRunner
 import os
 
 RUN_NAME = "Multiagency"
-VIDEO_LOG_DIR = (Path("logs") / ENV_NAME / RUN_NAME / "videos").expanduser()
+VIDEO_LOG_DIR = (Path("logs").absolute() / ENV_NAME / RUN_NAME / "videos").expanduser()
 VIDEO_LOG_DIR.mkdir(exist_ok=True, parents=True)
 VIDEO_SAVE_FREQ = 1
 EVALUATION = False
