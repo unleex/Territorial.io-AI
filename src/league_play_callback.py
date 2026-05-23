@@ -64,7 +64,7 @@ class LeaguePlayCallback(DefaultCallbacks):
 
     def on_train_result(self, *, algorithm: Algorithm, result, **kwargs):
         custom_metrics = result.get("custom_metrics", {})
-        avg_best_place = custom_metrics.get("best_place_mean", -1.0)
+        avg_best_place = custom_metrics.get("best_place_mean", float("inf"))
 
-        if avg_best_place >= self.avg_place_threshold:
+        if avg_best_place <= self.avg_place_threshold:
             self.update_policies(algorithm)
