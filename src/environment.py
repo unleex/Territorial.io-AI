@@ -278,9 +278,8 @@ class CustomEnvironment(ParallelEnv):
             infos[agent] = {}
 
             obs[agent] = self.observe(agent)
-
             if terminations[agent]:  # agent is removed later
-                place = len(self.agents)
+                place = len(self.game.id_to_country)
                 # 1 for first, -1 for last and linear
                 rewards[agent] += (
                     2 * (place - self.game.n_players) / (1 - self.game.n_players) - 1
