@@ -26,20 +26,20 @@ class LeaguePlayCallback(DefaultCallbacks):
         policies=None,
         **kwargs,
     ):
-        episode.user_data["places"] = []
+        episode.user_data["places"] = {}
 
     def on_episode_step(self, *, episode: EpisodeV2, **kwargs):
         for agent_id in episode.get_agents():
             if episode.policy_for(agent_id) == "p0":
                 info = episode.last_info_for(agent_id=agent_id)
                 if "place" in info:
-                    episode.user_data["places"].append(info["place"])
+                    episode.user_data["places"][agent_id] = info["place"]
 
     def on_episode_end(
         self, *, worker, base_env, policies, episode: EpisodeV2, env_index, **kwargs
     ):
         places = episode.user_data["places"]
-        episode.custom_metrics["best_place"] = float(min(places))
+        episode.custom_metrics["best_place"] = float(min(places.values()))
 
     def update_league(self, algorithm):
         self.current_opponent += 1
@@ -79,9 +79,10 @@ class LeaguePlayCallback(DefaultCallbacks):
         self.update_league(algorithm)
 
     def on_train_result(self, *, algorithm: Algorithm, result, **kwargs):
+        if algorithm.iteration % 10 != 0:
+            return
         env_runners_dict = result.get("env_runners", {})
         custom_metrics = env_runners_dict.get("custom_metrics", {})
         avg_best_place = custom_metrics.get("best_place_mean", float("inf"))
-        print(avg_best_place, "A" * 100)
         if avg_best_place <= self.avg_place_threshold:
             self.update_league(algorithm)
