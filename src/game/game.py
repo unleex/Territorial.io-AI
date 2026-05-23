@@ -51,7 +51,6 @@ class Game:
                 continue
             self.gameOver = len(self.id_to_country) == 1
             if self.gameOver:
-                print("GAME OVER!")
                 return False
             self.id_to_country[key].updateMoney()
             if key not in self.agents:
