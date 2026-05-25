@@ -1,8 +1,8 @@
 from ray.rllib.algorithms.ppo import PPOConfig
 from prepare_env import ENV_NAME
+from model import MODEL_NAME
 from callback import MergedCallback
 
-CONFIG_NAME = "H200"
 config = (
     PPOConfig()
     .environment(
@@ -25,4 +25,18 @@ config = (
         enable_env_runner_and_connector_v2=False,
     )
     .callbacks(MergedCallback)
+)
+training_params = dict(
+    train_batch_size=None,
+    minibatch_size=None,
+    lr=5e-5,
+    gamma=0.99,
+    lambda_=0.9,
+    use_gae=True,
+    clip_param=0.2,
+    grad_clip=0.5,
+    entropy_coeff=0.01,
+    vf_loss_coeff=0.25,
+    num_epochs=15,
+    model={"custom_model": MODEL_NAME},
 )
