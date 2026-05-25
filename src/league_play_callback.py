@@ -6,7 +6,7 @@ from ray.rllib.utils.metrics.metrics_logger import MetricsLogger
 
 
 class LeaguePlayCallback(DefaultCallbacks):
-    def __init__(self, avg_place_threshold=3, n_trainable_players=3):
+    def __init__(self, avg_place_threshold=3, n_trainable_players=2):
         super().__init__()
         self.current_opponent = 0
         self.avg_place_threshold = avg_place_threshold
@@ -41,11 +41,11 @@ class LeaguePlayCallback(DefaultCallbacks):
         places = episode.user_data["places"]
         episode.custom_metrics["avg_place"] = float(np.mean(list(places.values())))
 
-    def update_league(self, algorithm: Algorithm):
+    def update_league(self, algorithm: Algorithm, step, metrics_logger: MetricsLogger):
         self.current_opponent += 1
         new_policy_id = f"p0_v{self.current_opponent}"
         print(f"Snapshotting {new_policy_id} to league...")
-
+        metrics_logger.log_value("league_updates", 1, reduce="sum")
         main_policy = algorithm.get_policy("p0")
 
         algorithm.add_policy(
@@ -62,7 +62,7 @@ class LeaguePlayCallback(DefaultCallbacks):
             if agent_id in range(self.n_trainable_players):
                 return "p0"
             rng = np.random.default_rng(hash(episode.episode_id) + agent_id)
-            pool = [f"p0_v{i}" for i in range(1, self.current_opponent + 1)]
+            pool = [f"p0_v{i}" for i in range(1, step + 1)]
             return rng.choice(pool)
 
         algorithm.env_runner_group.foreach_env_runner(
@@ -76,11 +76,13 @@ class LeaguePlayCallback(DefaultCallbacks):
         metrics_logger: MetricsLogger | None = None,
         **kwargs,
     ) -> None:
-        self.update_league(algorithm)
+        self.update_league(algorithm, self.current_opponent + 1, metrics_logger)
 
-    def on_train_result(self, *, algorithm: Algorithm, result, **kwargs):
+    def on_train_result(
+        self, *, algorithm: Algorithm, result, metrics_logger, **kwargs
+    ):
         env_runners_dict = result.get("env_runners", {})
         custom_metrics = env_runners_dict.get("custom_metrics", {})
         avg_best_place = custom_metrics.get("avg_place_mean", float("inf"))
         if avg_best_place <= self.avg_place_threshold:
-            self.update_league(algorithm)
+            self.update_league(algorithm, self.current_opponent + 1, metrics_logger)
