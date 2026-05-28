@@ -1,4 +1,3 @@
-from model import MODEL_NAME
 from configs.common import config, training_params
 
 CONFIG_NAME = "H200"

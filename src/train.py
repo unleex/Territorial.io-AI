@@ -19,7 +19,7 @@ def train():
         config=config.to_dict(),
         reuse_actors=True,
         # resume=True,
-        restore="logs/custom_env/Multiagency/PPO_custom_env_dead7_00000_0_2026-05-23_19-38-47/checkpoint_000001",
+        restore="logs/custom_env/all_pretrained_agents/PPO_custom_env_2860d_00000_0_2026-05-28_18-44-48/checkpoint_000001",
     )
 
 

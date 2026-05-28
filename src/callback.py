@@ -7,7 +7,7 @@ class MergedCallback(RLlibCallback):
     def __init__(self):
         self.callbacks = [
             VideoCallback(),
-            LeaguePlayCallback(avg_place_threshold=3, n_trainable_players=2),
+            LeaguePlayCallback(avg_place_threshold=3, n_trainable_players=1),
         ]
 
     def on_episode_start(self, **kwargs):

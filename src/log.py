@@ -10,7 +10,7 @@ from matplotlib.colors import to_rgb
 from ray.rllib.env.env_runner import EnvRunner
 import os
 
-RUN_NAME = "Multiagency"
+RUN_NAME = "all_pretrained_agents"
 VIDEO_LOG_DIR = (Path("logs").absolute() / ENV_NAME / RUN_NAME / "videos").expanduser()
 VIDEO_LOG_DIR.mkdir(exist_ok=True, parents=True)
 VIDEO_SAVE_FREQ = 10
@@ -75,9 +75,7 @@ class VideoCallback(RLlibCallback):
         self.episode_counter = 0
 
     def on_episode_start(self, *, episode, worker: EnvRunner, **kwargs):
-        record = self.episode_counter % self.save_freq == 0 and (
-            worker.worker_index == 1 or EVALUATION
-        )
+        record = self.episode_counter % self.save_freq == 0
         episode.user_data["record"] = record
         episode.user_data["frames"] = []
         self.episode_counter += 1
