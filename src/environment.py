@@ -27,14 +27,22 @@ class CustomEnvironment(ParallelEnv):
     def unpermute_id(self, permuted_id: int, agent: int) -> int:
         return int(self.reverse_id_permutation[agent][permuted_id] - 1)
 
-    def __init__(self, rendering=True, n_players=8, n_agents=8):
+    def __init__(self, rendering=True, n_players=8, n_agents=8, landscape_path=None):
         """
         ticks_delta: int (default = 1) how many game ticks to run between agent's decisions
         """
         super().__init__()
         self.n_players = n_players
         self.n_agents = n_agents
-        self.game = Game(n_players=self.n_players, n_agents=self.n_agents)
+        landscape = None
+        if landscape_path is not None:
+            landscape = np.load(landscape_path)
+
+        self._build_game = lambda: Game(
+            n_players=self.n_players, n_agents=self.n_agents, landscape=landscape
+        )
+
+        self.game = self._build_game()
 
         self.ticks_delta = 5
         self.render_mode = None
@@ -118,7 +126,7 @@ class CustomEnvironment(ParallelEnv):
         return id_perm, reverse_perm
 
     def _prepare(self):
-        self.game = Game(n_players=self.n_players, n_agents=self.n_agents)
+        self.game = self._build_game()
         if self.rendering:
             self.renderer = GameRenderer(self.game.countryColors)
 
@@ -142,12 +150,13 @@ class CustomEnvironment(ParallelEnv):
 
     def _get_observation_frame(self, agent):
         board = np.array(self.game.board)
-        permuted_board = np.full(board.shape, -1)
+        permuted_board = np.zeros(board.shape, dtype=np.int8)
         for original_id in range(-1, self.game.n_players):
             permuted_board[board == original_id] = self.permute_id(original_id, agent)
 
         num_channels = self.game.n_players + 1
         one_hot = np.eye(num_channels, dtype=np.int8)[permuted_board]
+        one_hot[board == -2] = 0
         stats = np.zeros(self.n_stats, dtype=np.float32)
         for perm_idx in range(1, self.game.n_players + 1):
             original_id = self.unpermute_id(perm_idx, agent)

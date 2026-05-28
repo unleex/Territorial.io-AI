@@ -1,7 +1,7 @@
 from datetime import datetime
 from environment import CustomEnvironment
 import numpy as np
-from game.countryClass import country
+from game.countryClass import country, OBSTACLE_ID
 from prepare_env import ENV_NAME
 from ray.rllib.callbacks.callbacks import RLlibCallback
 from pathlib import Path
@@ -9,6 +9,7 @@ import imageio.v2 as imageio
 from matplotlib.colors import to_rgb
 from ray.rllib.env.env_runner import EnvRunner
 import os
+from game.game import OBSTACLE_COLOR
 
 RUN_NAME = "Multiagency"
 VIDEO_LOG_DIR = (Path("logs").absolute() / ENV_NAME / RUN_NAME / "videos").expanduser()
@@ -35,6 +36,7 @@ class VideoCallback(RLlibCallback):
         map_img = np.zeros((*board.shape, 3), dtype=np.float32)
         for i in range(n_players):
             map_img[board == i] = to_rgb(colors[i])
+        map_img[board == OBSTACLE_ID] = to_rgb(OBSTACLE_COLOR)
         map_img = (map_img * 255).astype(np.uint8)
 
         # 2. Draw the Histogram (Right Side)

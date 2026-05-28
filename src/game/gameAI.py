@@ -6,6 +6,8 @@ if TYPE_CHECKING:
     from game.game import Game
     from game.countryClass import country
 
+OBSTACLE_ID = -2  # FIXME: circular import
+
 
 # target = id of country that the function is finding neighbours for
 def findNeighbours(game: "Game", target):
@@ -30,12 +32,17 @@ def findNeighbours(game: "Game", target):
     # 4. Extract the actual values (IDs) from the grid at those locations
     neighbor_ids = grid[neighbor_pixels_mask]
     ids, counts = np.unique(neighbor_ids, return_counts=True)
-    return dict(zip(ids, counts))
+    neigh = dict(zip(ids, counts))
+    if OBSTACLE_ID in neigh:
+        neigh.pop(OBSTACLE_ID)
+    return neigh
 
 
 def runAi(game: "Game", agent: "country"):
     # Find weakest neighbour
     d = findNeighbours(game, agent.id)
+    if not d:
+        return
     # If there is still empty space and agent has some threshold of money
     if -1 in d:
         commit = int(5.0 * d[-1]) + 1

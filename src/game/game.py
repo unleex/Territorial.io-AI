@@ -1,13 +1,22 @@
 import numpy as np
 import random
-from game.countryClass import country
+from game.countryClass import country, OBSTACLE_ID
 from game.gameAI import runAi
+
+OBSTACLE_COLOR = "#020075"
 
 
 class Game:
-    def __init__(self, n_players=8, n_agents=8, grid_rows=80, grid_columns=80):
+    def __init__(
+        self,
+        n_players=8,
+        n_agents=8,
+        grid_rows=80,
+        grid_columns=80,
+        landscape: np.ndarray | None = None,
+    ):
         self.countryColors = [
-            "#ffffffff",
+            "#ffffff",
             "#ffff00",
             "#00ff00",
             "#00ffff",
@@ -28,6 +37,11 @@ class Game:
         for i in range(self.n_grid_rows):
             board.append([-1] * self.n_grid_columns)
         self.board = np.array(board, dtype=np.int8)
+        if landscape is not None:
+            assert landscape.shape == (self.n_grid_rows, self.n_grid_columns), (
+                "Landscape dimensions must be same as map's dimensions."
+            )
+            self.board[landscape.astype(bool)] = OBSTACLE_ID
         for i in range(self.n_players):
             row = random.randint(0, self.n_grid_rows - 1)
             col = random.randint(0, self.n_grid_columns - 1)

@@ -8,6 +8,8 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from game.game import Game
 
+OBSTACLE_ID = -2
+
 
 def roundHalfUp(d):  # helper-fn
     # Round to nearest with ties going away from zero.
