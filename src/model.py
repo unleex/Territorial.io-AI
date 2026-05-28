@@ -28,14 +28,18 @@ class MultiDiscreteActionMaskModel(TorchModelV2, nn.Module):
 
         self.encoder = nn.Sequential(
             # no dilation since first layers must detect borders
-            nn.Conv2d(in_channels, 32, kernel_size=3, stride=2, padding=1),
+            nn.Conv2d(in_channels, 64, kernel_size=3, stride=2, padding=1),
             nn.ReLU(),
-            nn.Conv2d(32, 64, kernel_size=3, stride=2, padding=1),
+            nn.MaxPool2d(kernel_size=2, stride=2),
+
+            nn.Conv2d(64, 128, kernel_size=3, stride=2, padding=1),
             nn.ReLU(),
+            nn.MaxPool2d(kernel_size=2, stride=2),
             # dilation to look at broader territory
-            nn.Conv2d(64, 128, kernel_size=3, stride=1, padding=1, dilation=2),
+            nn.Conv2d(128, 256, kernel_size=3, stride=1, padding=1, dilation=2),
             nn.ReLU(),
-            nn.Conv2d(128, 128, kernel_size=3, stride=1, padding=1),
+
+            nn.Conv2d(256, 256, kernel_size=3, stride=1, padding=1),
             nn.ReLU(),
             nn.Flatten(),
         )
@@ -50,11 +54,13 @@ class MultiDiscreteActionMaskModel(TorchModelV2, nn.Module):
             nn.ReLU(),
             nn.Linear(1024, 512),
             nn.ReLU(),
-            nn.Linear(512, 512),
+            nn.Linear(512, 256),
+            nn.ReLU(),
+            nn.Linear(256, 256),
             nn.ReLU(),
         )
-        self.policy_head = nn.Linear(512, num_outputs)
-        self.value_head = nn.Linear(512, 1)
+        self.policy_head = nn.Linear(256, num_outputs)
+        self.value_head = nn.Linear(256, 1)
         self._value_out = None
 
     def forward(self, input_dict, state, seq_lens):

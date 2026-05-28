@@ -27,14 +27,16 @@ class CustomEnvironment(ParallelEnv):
     def unpermute_id(self, permuted_id: int, agent: int) -> int:
         return int(self.reverse_id_permutation[agent][permuted_id] - 1)
 
-    def __init__(self, rendering=True, n_players=8, n_agents=8):
+    def __init__(self, rendering=True, n_players=8, n_agents=8, grid_rows=256, grid_columns=256):
         """
         ticks_delta: int (default = 1) how many game ticks to run between agent's decisions
         """
         super().__init__()
         self.n_players = n_players
         self.n_agents = n_agents
-        self.game = Game(n_players=self.n_players, n_agents=self.n_agents)
+        self.grid_columns = grid_columns
+        self.grid_rows = grid_rows
+        self.game = Game(n_players=self.n_players, n_agents=self.n_agents, grid_rows=self.grid_rows, grid_columns=self.grid_columns)
 
         self.ticks_delta = 5
         self.render_mode = None
@@ -118,7 +120,7 @@ class CustomEnvironment(ParallelEnv):
         return id_perm, reverse_perm
 
     def _prepare(self):
-        self.game = Game(n_players=self.n_players, n_agents=self.n_agents)
+        self.game = Game(n_players=self.n_players, n_agents=self.n_agents, grid_rows=self.grid_rows, grid_columns=self.grid_columns)
         if self.rendering:
             self.renderer = GameRenderer(self.game.countryColors)
 

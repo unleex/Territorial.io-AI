@@ -2,7 +2,7 @@ from prepare_env import ENV_NAME
 from pathlib import Path
 
 from ray import tune
-from config import config, NUM_GPUS, NUM_CPUS
+from configs.mac_config import config, NUM_GPUS, NUM_CPUS
 import ray
 from log import RUN_NAME
 
@@ -19,7 +19,7 @@ def train():
         config=config.to_dict(),
         reuse_actors=True,
         # resume=True,
-        restore="logs/custom_env/all_pretrained_agents/PPO_custom_env_2860d_00000_0_2026-05-28_18-44-48/checkpoint_000001",
+        # srestore="logs/custom_env/all_pretrained_agents/PPO_custom_env_2860d_00000_0_2026-05-28_18-44-48/checkpoint_000001",
     )
 
 
