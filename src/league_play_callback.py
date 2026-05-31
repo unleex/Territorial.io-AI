@@ -11,6 +11,7 @@ class LeaguePlayCallback(DefaultCallbacks):
         self.current_opponent = 0
         self.avg_place_threshold = avg_place_threshold
         self.n_trainable_players = n_trainable_players
+        self.num_policies = 10
 
     def on_episode_start(
         self,
@@ -55,6 +56,9 @@ class LeaguePlayCallback(DefaultCallbacks):
             action_space=main_policy.action_space,
             config=main_policy.config,
         )
+        if self.current_opponent > self.num_policies:
+            old_policy_id = f"p0_v{self.current_opponent - self.num_policies}"
+            algorithm.remove_policy(old_policy_id)
 
         algorithm.set_weights({new_policy_id: main_policy.get_weights()})
 
@@ -62,7 +66,8 @@ class LeaguePlayCallback(DefaultCallbacks):
             if agent_id in range(self.n_trainable_players):
                 return "p0"
             rng = np.random.default_rng(hash(episode.episode_id) + agent_id)
-            pool = [f"p0_v{i}" for i in range(1, step + 1)]
+            start = max(1, self.current_opponent - self.num_policies)
+            pool = [f"p0_v{i}" for i in range(start, self.current_opponent + 1)]
             return rng.choice(pool)
 
         algorithm.env_runner_group.foreach_env_runner(

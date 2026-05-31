@@ -14,12 +14,13 @@ def train():
         "PPO",
         name=RUN_NAME,
         stop={"timesteps_total": 8_000_000},
-        checkpoint_freq=10,
         storage_path=storage_uri,
         config=config.to_dict(),
         reuse_actors=True,
+        checkpoint_at_end=True,
+        checkpoint_freq=0,
         # resume=True,
-        restore="logs/custom_env/all_pretrained_agents/PPO_custom_env_2860d_00000_0_2026-05-28_18-44-48/checkpoint_000001",
+        # restore="logs/custom_env/all_pretrained_agents/PPO_custom_env_038bc_00000_0_2026-05-31_23-40-52/checkpoint_000023",
     )
 
 

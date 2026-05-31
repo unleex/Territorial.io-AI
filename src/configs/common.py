@@ -25,6 +25,7 @@ config = (
         enable_env_runner_and_connector_v2=False,
     )
     .callbacks(MergedCallback)
+    .checkpointing(checkpoint_trainable_policies_only=True)
 )
 training_params = dict(
     train_batch_size=None,
