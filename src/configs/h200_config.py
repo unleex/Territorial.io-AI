@@ -2,7 +2,7 @@ from configs.common import config, training_params
 
 CONFIG_NAME = "H200"
 training_params["train_batch_size"] = 32_768 // 2
-training_params["minibatch_size"] = 8192 // 2
+training_params["minibatch_size"] = 4096
 config = (
     config.training(**training_params)
     .resources(num_gpus=1)

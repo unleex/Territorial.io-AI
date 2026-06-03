@@ -15,7 +15,7 @@ config = (
         policy_mapping_fn=(lambda aid, *args, **kwargs: "p0"),
         count_steps_by="agent_steps",
         policies_to_train=["p0"],
-        policy_map_capacity=10,
+        policy_map_capacity=100,
         policy_states_are_swappable=True,
     )
     .debugging(log_level="WARN")
@@ -25,19 +25,19 @@ config = (
         enable_env_runner_and_connector_v2=False,
     )
     .callbacks(MergedCallback)
-    .checkpointing(checkpoint_trainable_policies_only=True)
+    # .checkpointing(checkpoint_trainable_policies_only=True)
 )
 training_params = dict(
     train_batch_size=None,
     minibatch_size=None,
     lr=2e-5,
-    gamma=0.99,
+    gamma=0.999,
     lambda_=0.9,
     use_gae=True,
     clip_param=0.2,
     grad_clip=0.5,
     entropy_coeff=0.01,
     vf_loss_coeff=0.25,
-    num_epochs=15,
+    num_epochs=10,
     model={"custom_model": MODEL_NAME},
 )
