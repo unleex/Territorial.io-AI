@@ -35,7 +35,7 @@ class CustomEnvironment(ParallelEnv):
         self.n_players = n_players
         self.n_agents = n_agents
         self.game = Game(n_players=self.n_players, n_agents=self.n_agents)
-
+        self.reward_convexity = 1.5
         self.ticks_delta = 5
         self.render_mode = None
         self.rendering = rendering
@@ -227,14 +227,14 @@ class CustomEnvironment(ParallelEnv):
             )
             for agent in self.possible_agents
         }
-        old_player_money = {
-            agent: (
-                self.game.id_to_country[agent].money
-                if agent in self.game.id_to_country
-                else 0
-            )
-            for agent in self.possible_agents
-        }
+        # old_player_money = {
+        #     agent: (
+        #         self.game.id_to_country[agent].money
+        #         if agent in self.game.id_to_country
+        #         else 0
+        #     )
+        #     for agent in self.possible_agents
+        # }
 
         for agent in self.agents:
             if agent not in self.game.id_to_country:
@@ -264,15 +264,15 @@ class CustomEnvironment(ParallelEnv):
             won = is_alive and len(self.game.id_to_country) == 1
 
             new_size = self.game.id_to_country[agent].size if is_alive else 0
-            new_money = self.game.id_to_country[agent].money if is_alive else 0
+            # new_money = self.game.id_to_country[agent].money if is_alive else 0
             rewards[agent] = (new_size - old_player_size[agent]) / (
                 self.game.n_grid_rows * self.game.n_grid_columns
             )
-            rewards[agent] += (
-                (new_money - old_player_money[agent])
-                / (self.game.n_grid_rows * self.game.n_grid_columns)
-                / 1000
-            )
+            # rewards[agent] += (
+            #     (new_money - old_player_money[agent])
+            #     / (self.game.n_grid_rows * self.game.n_grid_columns)
+            #     / 1000
+            # )
             terminations[agent] = not is_alive or won
             truncations[agent] = is_timeout if is_alive else False
             infos[agent] = {}
@@ -282,7 +282,12 @@ class CustomEnvironment(ParallelEnv):
                 place = len(self.game.id_to_country)
                 # 1 for first, -1 for last and linear
                 rewards[agent] += (
-                    2 * (place - self.game.n_players) / (1 - self.game.n_players) - 1
+                    2
+                    * (
+                        ((self.game.n_players - place) / (self.game.n_players - 1))
+                        ** self.reward_convexity
+                    )
+                    - 1
                 )
                 infos[agent] = {"place": place}
 
