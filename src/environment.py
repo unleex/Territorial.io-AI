@@ -290,6 +290,7 @@ class CustomEnvironment(ParallelEnv):
                     - 1
                 )
                 infos[agent] = {"place": place}
+                infos[agent]["game_instance"] = self.game
 
         self.truncations = truncations
         self.terminations = terminations

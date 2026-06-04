@@ -4,7 +4,10 @@ from ray.rllib.algorithms import Algorithm
 from ray.rllib.evaluation.episode_v2 import EpisodeV2
 from ray.rllib.utils.metrics.metrics_logger import MetricsLogger
 
-
+policies = {
+    **{f"bot{i}": (BotPolicy, obs_space, act_space, {"model": {}}) for i in range(n)},
+    **{f"nn{i}": (None, obs_space, act_space, {"model": {"custom_model": "my_model"}}) for i in range(n)},
+}
 class LeaguePlayCallback(DefaultCallbacks):
     def __init__(self, avg_place_threshold=3, n_trainable_players=2):
         super().__init__()

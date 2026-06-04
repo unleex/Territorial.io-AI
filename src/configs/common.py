@@ -41,3 +41,5 @@ training_params = dict(
     num_epochs=10,
     model={"custom_model": MODEL_NAME},
 )
+env_runners_params = dict(batch_mode="truncate_episodes")
+

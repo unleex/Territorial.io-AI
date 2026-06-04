@@ -1,5 +1,6 @@
 from model import MODEL_NAME
-from configs.common import config
+from configs.common import config, training_params, env_runners_params
+
 
 CONFIG_NAME = "MAC"
 config = config.training(
@@ -15,6 +16,6 @@ config = config.training(
     minibatch_size=64,
     num_epochs=10,
     model={"custom_model": MODEL_NAME},
-).env_runners(num_env_runners=6)
+).env_runners(num_env_runners=6, **env_runners_params)
 NUM_CPUS = 8
 NUM_GPUS = 0
