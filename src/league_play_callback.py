@@ -1,13 +1,58 @@
+import random
 import numpy as np
 from ray.rllib.algorithms.callbacks import DefaultCallbacks
 from ray.rllib.algorithms import Algorithm
 from ray.rllib.evaluation.episode_v2 import EpisodeV2
 from ray.rllib.utils.metrics.metrics_logger import MetricsLogger
+from players.bot import BotPolicy
+from environment import CustomEnvironment
+from players.model import MODEL_NAME
+
+# XXX what the
+TOTAL_PLAYERS = 8
+NUM_FROZEN_POLICIES = 10
+
+
+def get_action_space():
+    # XXX now we have the same action for any agent.
+    return CustomEnvironment().action_spaces.items()[0][1]
+
+
+def get_observation_space():
+    # XXX now we have the same obs for any agent.
+    return CustomEnvironment().observation_spaces.items()[0][1]
+
 
 policies = {
-    **{f"bot{i}": (BotPolicy, obs_space, act_space, {"model": {}}) for i in range(n)},
-    **{f"nn{i}": (None, obs_space, act_space, {"model": {"custom_model": "my_model"}}) for i in range(n)},
+    **{
+        f"bot{i}": (
+            BotPolicy,
+            get_observation_space(),
+            get_action_space(),
+            {"model": {}},
+        )
+        for i in range(TOTAL_PLAYERS)
+    },
+    **{
+        "p0": (
+            None,
+            get_observation_space(),
+            get_action_space(),
+            {"model": {"custom_model": MODEL_NAME}},
+        )
+    },
+    **{
+        f"p0_v{i}": (
+            None,
+            get_observation_space(),
+            get_action_space(),
+            {"model": {"custom_model": MODEL_NAME}},
+        )
+        for i in range(NUM_FROZEN_POLICIES)
+    },
 }
+
+
 class LeaguePlayCallback(DefaultCallbacks):
     def __init__(self, avg_place_threshold=3, n_trainable_players=2):
         super().__init__()
@@ -63,6 +108,16 @@ class LeaguePlayCallback(DefaultCallbacks):
 
         snapshot_policy.set_state(main_policy.get_state())
         self.current_opponent += 1
+        chosen = random.sample(policies.keys(), 8)  # XXX what the
+
+        def mapping_fn(agent_id):
+            if agent_id in range(self.n_trainable_players):
+                return "p0"
+            return chosen[agent_id]
+
+        algorithm.env_runner_group.foreach_env_runner(
+            lambda w: w.set_policy_mapping_fn(mapping_fn)
+        )
 
     def on_algorithm_init(
         self,
@@ -83,20 +138,6 @@ class LeaguePlayCallback(DefaultCallbacks):
                 config=main_policy.config,
             )
             algorithm.set_weights({new_policy_id: main_policy.get_weights()})
-
-        def mapping_fn(
-            agent_id,
-            episode: EpisodeV2,
-            worker,
-            **kwargs,
-        ):
-            if agent_id in range(self.n_trainable_players):
-                return "p0"
-            return np.random.choice(self.available_snapshots)
-
-        algorithm.env_runner_group.foreach_env_runner(
-            lambda w: w.set_policy_mapping_fn(mapping_fn)
-        )
 
     def on_train_result(
         self, *, algorithm: Algorithm, result, metrics_logger, **kwargs

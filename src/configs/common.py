@@ -1,7 +1,9 @@
 from ray.rllib.algorithms.ppo import PPOConfig
 from prepare_env import ENV_NAME
-from model import MODEL_NAME
+from players.model import MODEL_NAME
 from callback import MergedCallback
+from league_play_callback import policies
+
 
 config = (
     PPOConfig()
@@ -11,8 +13,10 @@ config = (
         disable_env_checking=False,
     )
     .multi_agent(
-        policies={"p0"},
-        policy_mapping_fn=(lambda aid, *args, **kwargs: "p0"),
+        policies=policies,
+        policy_mapping_fn=(
+            lambda aid, *args, **kwargs: "p0"
+        ),  # will be changed in league callback
         count_steps_by="agent_steps",
         policies_to_train=["p0"],
         policy_map_capacity=100,
@@ -42,4 +46,3 @@ training_params = dict(
     model={"custom_model": MODEL_NAME},
 )
 env_runners_params = dict(batch_mode="truncate_episodes")
-

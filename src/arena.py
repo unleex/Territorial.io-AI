@@ -4,7 +4,7 @@ from pathlib import Path
 from itertools import combinations
 import imageio.v2 as imageio
 import numpy as np
-import model as _model_module
+import players.model as _model_module
 from environment import CustomEnvironment
 from game.game import Game
 from ray.rllib.algorithms.ppo import PPO

@@ -1,7 +1,7 @@
 import os
 from ray.rllib.algorithms.algorithm import Algorithm
 from ray.tune import Tuner
-import model
+import players.model as model
 
 
 def filtered_checkpoint_from_policy_ids(

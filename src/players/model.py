@@ -4,9 +4,10 @@ import torch.nn as nn
 from ray.rllib.models import ModelCatalog
 from ray.rllib.models.modelv2 import restore_original_dimensions
 from ray.rllib.models.torch.torch_modelv2 import TorchModelV2
+from players.base_player import BasePlayer
 
 
-class MultiDiscreteActionMaskModel(TorchModelV2, nn.Module):
+class MultiDiscreteActionMaskModel(TorchModelV2, nn.Module, BasePlayer):
     """TorchModelV2 for Dict(obs, action_mask) + MultiDiscrete actions."""
 
     def __init__(self, obs_space, action_space, num_outputs, model_config, name):

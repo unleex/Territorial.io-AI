@@ -1,9 +1,10 @@
 import random
 from ray.rllib.policy.policy import Policy
 from game.gameAI import findNeighbours
+from players.base_player import BasePlayer
 
 
-class BotPolicy(Policy):
+class BotPolicy(Policy, BasePlayer):
     def compute_actions(
         self,
         obs_batch,

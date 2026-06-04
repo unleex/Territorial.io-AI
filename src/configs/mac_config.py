@@ -1,4 +1,4 @@
-from model import MODEL_NAME
+from players.model import MODEL_NAME
 from configs.common import config, training_params, env_runners_params
 
 
