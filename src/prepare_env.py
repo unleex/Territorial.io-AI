@@ -4,8 +4,8 @@ from ray.tune.registry import register_env
 from environment import CustomEnvironment
 
 
-def make_env(config):
-    n_bots = 7
+def make_env(_):
+    n_bots = 0  # XXX we now have bots as agents
     base = CustomEnvironment(rendering=False, n_agents=8 - n_bots)
     wrapped = ParallelPettingZooEnv(base)
     wrapped._agent_ids = set(getattr(base, "possible_agents"))

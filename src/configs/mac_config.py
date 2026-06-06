@@ -4,7 +4,7 @@ from configs.common import config, training_params, env_runners_params
 
 CONFIG_NAME = "MAC"
 config = config.training(
-    train_batch_size=256,
+    train_batch_size=64,
     lr=2e-5,
     gamma=0.999,
     lambda_=0.9,

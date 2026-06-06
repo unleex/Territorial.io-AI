@@ -27,7 +27,7 @@ class CustomEnvironment(ParallelEnv):
     def unpermute_id(self, permuted_id: int, agent: int) -> int:
         return int(self.reverse_id_permutation[agent][permuted_id] - 1)
 
-    def __init__(self, rendering=True, n_players=8, n_agents=8):
+    def __init__(self, rendering=False, n_players=8, n_agents=8):
         """
         ticks_delta: int (default = 1) how many game ticks to run between agent's decisions
         """
@@ -289,8 +289,7 @@ class CustomEnvironment(ParallelEnv):
                     )
                     - 1
                 )
-                infos[agent] = {"place": place}
-                infos[agent]["game_instance"] = self.game
+                infos[agent]["place"] = place
 
         self.truncations = truncations
         self.terminations = terminations

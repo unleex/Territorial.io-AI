@@ -11,7 +11,7 @@ def train():
     ray.init(
         num_cpus=NUM_CPUS,
         num_gpus=NUM_GPUS,
-        _temp_dir="/home2/mrgaschenko/tmp",
+        _temp_dir="/home2/mrgaschenko/Territorial.io-AI/tmp",
     )
     storage_uri = (Path("logs") / ENV_NAME).expanduser().resolve().as_uri()
     tune.run(
@@ -24,7 +24,7 @@ def train():
         checkpoint_at_end=True,
         checkpoint_freq=20,
         # resume=True,
-        restore="/home2/mrgaschenko/Territorial.io-AI/logs/custom_env/all_pretrained_agents/PPO_custom_env_8efad_00000_0_2026-06-02_18-05-57/checkpoint_000008",
+        # restore="/home2/mrgaschenko/Territorial.io-AI/logs/custom_env/all_pretrained_agents/PPO_custom_env_8efad_00000_0_2026-06-02_18-05-57/checkpoint_000008",
     )
 
 

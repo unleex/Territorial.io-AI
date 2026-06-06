@@ -1,7 +1,9 @@
 import random
+import numpy as np
+from game.gameAI import runAi
 from ray.rllib.policy.policy import Policy
-from game.gameAI import findNeighbours
 from players.base_player import BasePlayer
+import warnings
 
 
 class BotPolicy(Policy, BasePlayer):
@@ -15,54 +17,22 @@ class BotPolicy(Policy, BasePlayer):
         episodes=None,
         explore=None,
         timestep=None,
+        agent_id=None,
+        worker=None,
         **kwargs,
     ):
-        actions = []
-        for obs in obs_batch:
-            game = obs["game_instance"]
-            agent = obs["agent"]
-            actions.append(self.run_ai(game, agent))
-        return actions, [], {}
+        batch_size = len(obs_batch)
+        if worker is None:
+            warnings.warn("Bot policy didn't receive the worker, returning.")
+            return [self.action_space.sample() for _ in range(len(obs_batch))], [], {}
+        for _ in range(batch_size):
+            game = worker.env.game
+            env_agent_id = agent_id
+            actual_id = worker.env.unpermute_id(env_agent_id, env_agent_id)
+            agent_country = game.id_to_country.get(actual_id)
+            runAi(game, agent_country)
 
-    def run_ai(self, game, agent):
-        d = findNeighbours(game, agent.id)
-
-        if -1 in d:
-            commit = int(5.0 * d[-1]) + 1
-            if (
-                agent.money > random.randint(agent.size * 10, agent.size * 30)
-                and agent.money > commit
-            ):
-                return ("attack", -1, commit)
-            return ("noop",)
-
-        smallest = None
-        for i in d:
-            if (
-                smallest is None
-                or game.id_to_country[i].money < game.id_to_country[smallest].money
-            ):
-                smallest = i
-
-        density = game.id_to_country[smallest].money / game.id_to_country[smallest].size
-
-        if (
-            game.id_to_country[smallest].money < agent.money * agent.aggro
-            and int(d[smallest] * density) + 1 <= agent.money
-        ):
-            return ("attack", smallest, int(d[smallest] * density) + 1)
-
-        if agent.money / agent.size / 1000 < agent.threshold:
-            return ("noop",)
-
-        if (
-            game.id_to_country[smallest].money / (agent.money * agent.aggro)
-            <= agent.tooBig
-            or agent.money >= agent.size * 1000
-        ):
-            return ("attack", smallest, int(agent.money * agent.aggro))
-
-        return ("noop",)
+        return [self.action_space.sample() for _ in range(len(obs_batch))], [], {}
 
     def learn_on_batch(self, samples):
         return {}
