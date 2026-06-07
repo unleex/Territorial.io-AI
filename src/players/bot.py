@@ -1,5 +1,3 @@
-import random
-import numpy as np
 from game.gameAI import runAi
 from ray.rllib.policy.policy import Policy
 from players.base_player import BasePlayer
@@ -23,11 +21,20 @@ class BotPolicy(Policy, BasePlayer):
     ):
         batch_size = len(obs_batch)
         if worker is None:
-            warnings.warn("Bot policy didn't receive the worker, returning.")
+            warnings.warn(
+                "Bot policy compute_actions didn't receive the worker, returning."
+            )
             return [self.action_space.sample() for _ in range(len(obs_batch))], [], {}
-        for _ in range(batch_size):
-            game = worker.env.game
-            env_agent_id = agent_id
+
+        sub_envs = worker.env.get_sub_environments()
+        for i in range(batch_size):
+            episode = episodes[i]
+
+            env_id = episode.env_id
+
+            # Grab game instance for this specific observation
+            game = sub_envs[env_id].game
+            env_agent_id = info_batch[i]["agent_id"]
             actual_id = worker.env.unpermute_id(env_agent_id, env_agent_id)
             agent_country = game.id_to_country.get(actual_id)
             runAi(game, agent_country)

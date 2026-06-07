@@ -275,7 +275,7 @@ class CustomEnvironment(ParallelEnv):
             # )
             terminations[agent] = not is_alive or won
             truncations[agent] = is_timeout if is_alive else False
-            infos[agent] = {}
+            infos[agent] = {"agent_id": agent}
 
             obs[agent] = self.observe(agent)
             if terminations[agent]:  # agent is removed later

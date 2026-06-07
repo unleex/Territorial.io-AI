@@ -6,7 +6,7 @@ if __name__ == "__main__":
     log.VIDEO_SAVE_FREQ = 1
     log.EVALUATION = True
     config = config.evaluation(
-        evaluation_duration=100,
+        evaluation_duration=3,
         evaluation_duration_unit="episodes",
     )
     algo = config.build_algo()
