@@ -115,9 +115,10 @@ class LeaguePlayCallback(DefaultCallbacks):
 
         snapshot_policy.set_state(main_policy.get_state())
         algorithm.set_weights({snapshot_id: main_policy.get_weights()})
-        chosen = random.sample(
-            sorted(policy_pool.keys()), 8 - self.n_trainable_players
-        )  # XXX what the 8
+        # chosen = random.sample(
+        #     sorted(policy_pool.keys()), 8 - self.n_trainable_players
+        # )  # XXX what the 8
+        chosen = [f"bot{i}" for i in range(8 - self.n_trainable_players)]
         # force at least one bot for stability
         if not any([p.startswith("bot") for p in chosen]):
             chosen[0] = "bot0"

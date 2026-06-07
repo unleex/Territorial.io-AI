@@ -5,6 +5,10 @@ import warnings
 import random
 from game.gameAI import findNeighbours
 import numpy as np
+import typing
+
+if typing.TYPE_CHECKING:
+    from environment import CustomEnvironment
 
 
 class BotPolicy(Policy, BasePlayer):
@@ -37,20 +41,20 @@ class BotPolicy(Policy, BasePlayer):
             env_id = episode.env_id
 
             # Grab game instance for this specific observation
-            env_instance = sub_envs[env_id]
+            env_instance: "CustomEnvironment" = sub_envs[env_id]
             game = env_instance.game
             env_agent_id = info_batch[i]["agent_id"]
-            actual_id = worker.env.unpermute_id(env_agent_id, env_agent_id)
-            agent_country = game.id_to_country.get(actual_id)
-
-            target, commit = self.runai(game, agent_country)
-
+            agent_country = game.id_to_country.get(env_agent_id)
+            target, commit = self.runai(
+                game, agent_country
+            )  # FIXME bot algo doesn't account for env.tick() in between
             if target is None:
+                actions.append(np.array([0, 0], dtype=np.int64))
                 continue
             permuted_target = env_instance.permute_id(target, env_agent_id)
 
             ratio = commit / agent_country.money if agent_country.money > 0 else 0
-            commit_bin = int(np.clip(ratio * 10, 0, 10))
+            commit_bin = np.round(np.clip(ratio * 10, 0, 10))
 
             actions.append(np.array([permuted_target, commit_bin], dtype=np.int64))
 
