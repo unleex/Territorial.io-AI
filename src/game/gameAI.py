@@ -33,6 +33,7 @@ def findNeighbours(game: "Game", target):
     return dict(zip(ids, counts))
 
 
+# Isn't used in the training anymore, see BotPolicy
 def runAi(game: "Game", agent: "country"):
     # Find weakest neighbour
     d = findNeighbours(game, agent.id)
