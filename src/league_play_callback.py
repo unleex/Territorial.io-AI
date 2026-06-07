@@ -1,10 +1,12 @@
 import random
 import numpy as np
+from itertools import combinations
 from ray.rllib.algorithms.callbacks import DefaultCallbacks
 from ray.rllib.algorithms import Algorithm
 from ray.rllib.evaluation.episode_v2 import EpisodeV2
 from ray.rllib.utils.metrics.metrics_logger import MetricsLogger
 from players.bot import BotPolicy
+from arena import EloRating
 from environment import CustomEnvironment
 from players.model import MODEL_NAME
 
@@ -67,6 +69,7 @@ class LeaguePlayCallback(DefaultCallbacks):
         self.n_trainable_players = n_trainable_players
         self.num_policies = NUM_FROZEN_POLICIES
         self.available_snapshots = [f"p0_v{i}" for i in range(self.num_policies)]
+        self.elo = EloRating()
 
     def on_episode_start(
         self,
@@ -86,16 +89,43 @@ class LeaguePlayCallback(DefaultCallbacks):
 
     def on_episode_step(self, *, episode: EpisodeV2, **kwargs):
         for agent_id in episode.get_agents():
-            if episode.policy_for(agent_id) == "p0":
-                info = episode.last_info_for(agent_id=agent_id)
-                if "place" in info:
-                    episode.user_data["places"][agent_id] = info["place"]
+            info = episode.last_info_for(agent_id=agent_id)
+            if "place" in info:
+                episode.user_data["places"][agent_id] = info["place"]
 
     def on_episode_end(
         self, *, worker, base_env, policies, episode: EpisodeV2, env_index, **kwargs
     ):
         places = episode.user_data["places"]
-        episode.custom_metrics["avg_place"] = float(np.mean(list(places.values())))
+
+        policy_places = {}
+        for agent_id, place in places.items():
+            policy_id = episode.policy_for(agent_id)
+            if policy_id not in policy_places:
+                policy_places[policy_id] = []
+            policy_places[policy_id].append(place)
+
+        for policy_id, policy_episode_places in policy_places.items():
+            episode.custom_metrics[f"{policy_id}/avg_place"] = float(
+                np.mean(policy_episode_places)
+            )
+
+        active_policies = list(policy_places.keys())
+        if len(active_policies) >= 2:
+            # Sort the pair alphabetically so 'p0 vs bot0' and 'bot0 vs p0'
+            # always map to the exact same metric key across all workers
+            for p_a, p_b in combinations(sorted(active_policies), 2):
+                mean_a = np.mean(policy_places[p_a])
+                mean_b = np.mean(policy_places[p_b])
+
+                if mean_a < mean_b:
+                    score_a = 1.0
+                elif mean_a > mean_b:
+                    score_a = 0.0
+                else:
+                    score_a = 0.5
+
+                episode.custom_metrics[f"matchup_score/{p_a}_vs_{p_b}"] = score_a
 
     def update_league(
         self, algorithm: Algorithm, metrics_logger: MetricsLogger, result=None
@@ -115,10 +145,9 @@ class LeaguePlayCallback(DefaultCallbacks):
 
         snapshot_policy.set_state(main_policy.get_state())
         algorithm.set_weights({snapshot_id: main_policy.get_weights()})
-        # chosen = random.sample(
-        #     sorted(policy_pool.keys()), 8 - self.n_trainable_players
-        # )  # XXX what the 8
-        chosen = [f"bot{i}" for i in range(8 - self.n_trainable_players)]
+        chosen = random.sample(
+            sorted(policy_pool.keys()), 8 - self.n_trainable_players
+        )  # XXX what the 8
         # force at least one bot for stability
         if not any([p.startswith("bot") for p in chosen]):
             chosen[0] = "bot0"
@@ -140,8 +169,6 @@ class LeaguePlayCallback(DefaultCallbacks):
         metrics_logger: MetricsLogger | None = None,
         **kwargs,
     ) -> None:
-        # algorithm.env_runner_group.foreach_policy(collect_policy_id)
-        # self.current_opponent = max(policy_ids)
         main_policy = algorithm.get_policy("p0")
         self.update_league(algorithm, metrics_logger)
         for new_policy_id in self.available_snapshots:
@@ -156,6 +183,23 @@ class LeaguePlayCallback(DefaultCallbacks):
         )
         env_runners_dict = result.get("env_runners", {})
         custom_metrics = env_runners_dict.get("custom_metrics", {})
-        avg_best_place = custom_metrics.get("avg_place_mean", float("inf"))
+        for key, empirical_win_rate in custom_metrics.items():
+            if key.startswith("matchup_score/") and key.endswith("_mean"):
+                # Clean the key to extract policy names
+                # e.g., "matchup_score/p0_vs_bot0_mean" -> ["p0", "bot0"]
+                pair_str = key.replace("matchup_score/", "").replace("_mean", "")
+                p_a, p_b = pair_str.split("_vs_")
+
+                self.elo.register(p_a)
+                self.elo.register(p_b)
+
+                self.elo.update_from_batch(p_a, p_b, empirical_win_rate)
+
+        for policy_id, rating in self.elo.ratings.items():
+            custom_metrics[f"{policy_id}/elo"] = rating
+
+        print(self.elo.summary())
+
+        avg_best_place = custom_metrics.get("p0/avg_place_mean", float("inf"))
         if avg_best_place <= self.avg_place_threshold:
             self.update_league(algorithm, metrics_logger)

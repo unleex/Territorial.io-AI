@@ -1,5 +1,6 @@
 import os
-from configs.mac_config import config
+
+# from configs.mac_config import config
 from pathlib import Path
 from itertools import combinations
 import imageio.v2 as imageio
@@ -40,17 +41,58 @@ class EloRating:
         """Probability that A beats B according to current ratings."""
         return 1.0 / (1.0 + 10 ** ((self.ratings[name_b] - self.ratings[name_a]) / 400))
 
-    def update(self, name_a: str, name_b: str, score_a: float):
+    def update_from_batch(
+        self, name_a: str, name_b: str, empirical_win_rate: float, custom_k=None
+    ):
         """
-        Update ratings after one game.
-        score_a: 1.0 = A won, 0.5 = draw, 0.0 = B won.
+        Updates ratings using an aggregated win rate (0.0 to 1.0) instead of individual rows.
+        empirical_win_rate: The mean score of name_a against name_b (e.g., 0.75 if name_a won 75%).
         """
+        k = custom_k if custom_k is not None else self.k
+
+        # 1. Calculate expected win probabilities based on current frozen ratings
         e_a = self.expected(name_a, name_b)
         e_b = 1.0 - e_a
-        self.ratings[name_a] += self.k * (score_a - e_a)
-        self.ratings[name_b] += self.k * ((1.0 - score_a) - e_b)
+
+        # 2. Policy B's empirical win rate is simply the inverse of Policy A's
+        empirical_win_rate_b = 1.0 - empirical_win_rate
+
+        # 3. Compute deltas directly using the fractional scores
+        delta_a = k * (empirical_win_rate - e_a)
+        delta_b = k * (empirical_win_rate_b - e_b)
+
+        # 4. Mutate global states synchronously
+        self.ratings[name_a] += delta_a
+        self.ratings[name_b] += delta_b
+
+        # We treat this entire batch as 1 macro-match step for tracking history
         self.games_played[name_a] += 1
         self.games_played[name_b] += 1
+
+    def update(self, matchups, custom_k=None):
+        """
+        matchups: list of tuples (name_a, name_b, score_a)
+        Calculates all deltas using pre-match ratings, then applies them synchronously.
+        """
+        k = custom_k if custom_k is not None else self.k
+        deltas = {}
+
+        # Calculate all rating changes using the initial ratings
+        for name_a, name_b, score_a in matchups:
+            e_a = self.expected(name_a, name_b)
+            e_b = 1.0 - e_a
+
+            delta_a = k * (score_a - e_a)
+            delta_b = k * ((1.0 - score_a) - e_b)
+
+            deltas[name_a] = deltas.get(name_a, 0.0) + delta_a
+            deltas[name_b] = deltas.get(name_b, 0.0) + delta_b
+
+            self.games_played[name_a] += 1
+            self.games_played[name_b] += 1
+
+        for name, delta in deltas.items():
+            self.ratings[name] += delta
 
     def summary(self) -> str:
         rows = sorted(self.ratings.items(), key=lambda x: x[1], reverse=True)
@@ -69,12 +111,8 @@ class EloRating:
 
 
 def _load_algo(checkpoint_path: str):
-    eval_config = (
-        config
-        .resources(num_gpus=0)
-        .env_runners(num_env_runners=0)
-    )
-    
+    eval_config = config.resources(num_gpus=0).env_runners(num_env_runners=0)
+
     algo = eval_config.build_algo()
     algo.restore(checkpoint_path)
     return algo

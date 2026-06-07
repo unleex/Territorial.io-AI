@@ -187,7 +187,7 @@ class CustomEnvironment(ParallelEnv):
     def reset(
         self, seed: Optional[int] = None, options: Optional[Dict[str, Any]] = None
     ):
-        self.max_steps = 1000
+        self.max_steps = 5000
         self.current_step = 0
         self._prepare()
         self.current_step = 0
@@ -262,7 +262,6 @@ class CustomEnvironment(ParallelEnv):
             terminations[agent] = not is_alive or won
             truncations[agent] = is_timeout if is_alive else False
             infos[agent] = {"agent_id": agent}
-
             obs[agent] = self.observe(agent)
             if terminations[agent]:  # agent is removed later
                 place = len(self.game.id_to_country)

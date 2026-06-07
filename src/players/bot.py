@@ -1,4 +1,3 @@
-from game.gameAI import runAi
 from ray.rllib.policy.policy import Policy
 from players.base_player import BasePlayer
 import warnings

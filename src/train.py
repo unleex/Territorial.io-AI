@@ -5,6 +5,7 @@ from ray import tune
 from config import config, NUM_GPUS, NUM_CPUS
 import ray
 from log import RUN_NAME
+from ray.air.integrations.wandb import WandbLoggerCallback
 
 
 def train():
@@ -23,6 +24,7 @@ def train():
         reuse_actors=True,
         checkpoint_at_end=True,
         checkpoint_freq=20,
+        callbacks=[WandbLoggerCallback("Territorial.io")],
         # resume=True,
         # restore="/home2/mrgaschenko/Territorial.io-AI/logs/custom_env/all_pretrained_agents/PPO_custom_env_8efad_00000_0_2026-06-02_18-05-57/checkpoint_000008",
     )
