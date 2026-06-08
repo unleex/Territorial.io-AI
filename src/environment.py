@@ -8,7 +8,7 @@ from pettingzoo import ParallelEnv
 from game.game import Game
 from gymnasium import spaces
 from game.gameFuncs import findNeighbours
-
+from strategy_config import POLICY_COLORS
 # mock_info = {0: {}}
 
 
@@ -27,30 +27,33 @@ class CustomEnvironment(ParallelEnv):
     def unpermute_id(self, permuted_id: int, agent: int) -> int:
         return int(self.reverse_id_permutation[agent][permuted_id] - 1)
 
-    def __init__(self, rendering=False, n_players=8, n_agents=8):
+    def __init__(self, rendering, n_players, grid_rows, grid_columns):
         """
         ticks_delta: int (default = 1) how many game ticks to run between agent's decisions
         """
         super().__init__()
         self.n_players = n_players
-        self.n_agents = n_agents
-        self.game = Game(n_players=self.n_players, n_agents=self.n_agents)
+        # TODO remove this "legacy"
+        self.n_agents = n_players
+        self.id_permutation: Dict[int, np.ndarray] = {}
+        self.reverse_id_permutation: Dict[int, np.ndarray] = {}
+        self.map_obs_deque: Dict[int, deque[np.ndarray]] = {}
+
+        self.grid_columns = grid_columns
+        self.grid_rows = grid_rows
+        self.max_steps = 5000
         self.reward_convexity = 1.5
         self.ticks_delta = 1
         self.render_mode = None
         self.rendering = rendering
         self.obs_stack_size = 4
         self.n_commit_bins = 11
-
-        self.possible_agents = self.game.agents
         self.agents = []
+        self._prepare()
+
         self.terminations = {agent: False for agent in self.possible_agents}
         self.truncations = {agent: False for agent in self.possible_agents}
 
-        self.id_permutation: Dict[int, np.ndarray] = {}
-        self.reverse_id_permutation: Dict[int, np.ndarray] = {}
-
-        self.map_obs_deque: Dict[int, deque[np.ndarray]] = {}
         self.saved_stats: Dict[int, np.ndarray] = {}
 
         # map of one-hot vectors (each player + neutral)
@@ -94,7 +97,9 @@ class CustomEnvironment(ParallelEnv):
             for agent in self.possible_agents
         }
 
-        self._prepare()
+    def update_game_colors(self, new_colors: list[str]):
+        assert len(new_colors) == self.n_players
+        self.game.countryColors = new_colors
 
     def _build_permutations(self, agent):
         # Maps original ids in [-1, n_players - 1] to [0, n_players].
@@ -118,7 +123,14 @@ class CustomEnvironment(ParallelEnv):
         return id_perm, reverse_perm
 
     def _prepare(self):
-        self.game = Game(n_players=self.n_players, n_agents=self.n_agents)
+        self.game = Game(
+            n_players=self.n_players,
+            n_agents=self.n_agents,
+            grid_rows=self.grid_rows,
+            grid_columns=self.grid_columns,
+            country_colors=list(POLICY_COLORS.values())[: self.n_players],
+        )
+        self.possible_agents = self.game.agents
         if self.rendering:
             self.renderer = GameRenderer(self.game.countryColors)
 
@@ -187,10 +199,8 @@ class CustomEnvironment(ParallelEnv):
     def reset(
         self, seed: Optional[int] = None, options: Optional[Dict[str, Any]] = None
     ):
-        self.max_steps = 5000
         self.current_step = 0
         self._prepare()
-        self.current_step = 0
         self.agents = self.possible_agents[:]
         self.terminations = {agent: False for agent in self.possible_agents}
         self.truncations = {agent: False for agent in self.possible_agents}
@@ -263,9 +273,19 @@ class CustomEnvironment(ParallelEnv):
             truncations[agent] = is_timeout if is_alive else False
             infos[agent] = {"agent_id": agent}
             obs[agent] = self.observe(agent)
-            if terminations[agent]:  # agent is removed later
-                place = len(self.game.id_to_country)
-                # 1 for first, -1 for last and linear
+            if terminations[agent] or truncations[agent]:
+                if truncations[agent]:
+                    # The game timed out. Rank everyone currently alive by size.
+                    alive_agents = [
+                        a for a in self.agents if a in self.game.id_to_country
+                    ]
+                    alive_agents.sort(
+                        key=lambda a: self.game.id_to_country[a].size, reverse=True
+                    )
+                    place = alive_agents.index(agent) + 1
+                else:
+                    place = len(self.game.id_to_country)
+                # 1 for first, -1 for last
                 rewards[agent] += (
                     2
                     * (

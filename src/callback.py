@@ -1,13 +1,14 @@
 from ray.rllib.callbacks.callbacks import RLlibCallback
 from log import VideoCallback
 from league_play_callback import LeaguePlayCallback
+from strategy_config import N_TRAINABLES
 
 
 class MergedCallback(RLlibCallback):
     def __init__(self):
         self.callbacks = [
             VideoCallback(),
-            LeaguePlayCallback(avg_place_threshold=3, n_trainable_players=1),
+            LeaguePlayCallback(avg_place_threshold=3, n_trainable_players=N_TRAINABLES),
         ]
 
     def on_episode_start(self, **kwargs):

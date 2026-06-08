@@ -1,21 +1,19 @@
 import numpy as np
 import random
 from game.countryClass import country
-from game.gameAI import runAi
 
 
 class Game:
-    def __init__(self, n_players=8, n_agents=8, grid_rows=80, grid_columns=80):
-        self.countryColors = [  # TODO grab from agents
-            "#ffffffff",
-            "#ffff00",
-            "#00ff00",
-            "#00ffff",
-            "#ff0000",
-            "#A0A0A0",
-            "#ff00ff",
-            "#fc9105",
-        ]
+    def __init__(
+        self,
+        *,
+        n_players,
+        n_agents,
+        grid_rows,
+        grid_columns,
+        country_colors: list[str],
+    ):
+        self.countryColors = country_colors
         self.agents = list(range(n_players))
         self.ticks = 0
         self.gameOver = False

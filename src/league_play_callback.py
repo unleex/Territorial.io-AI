@@ -7,26 +7,24 @@ from ray.rllib.evaluation.episode_v2 import EpisodeV2
 from ray.rllib.utils.metrics.metrics_logger import MetricsLogger
 from players.bot import BotPolicy
 from arena import EloRating
-from environment import CustomEnvironment
 from players.model import MODEL_NAME
+from strategy_config import N_PLAYERS, POLICY_COLORS
+from prepare_env import make_env
 
-# XXX what the
-TOTAL_PLAYERS = 8
-NUM_FROZEN_POLICIES = 3
+
+NUM_FROZEN_POLICIES = N_PLAYERS
+# XXX now we have the same action and obs for any agent.
+env = make_env().par_env
+act_space = next(iter(env.action_spaces.values()))
+obs_space = next(iter(env.observation_spaces.values()))
 
 
 def get_action_space():
-    # XXX now we have the same action for any agent.
-    return CustomEnvironment().action_spaces[
-        next(iter(CustomEnvironment().action_spaces))
-    ]
+    return act_space
 
 
 def get_observation_space():
-    # XXX now we have the same obs for any agent.
-    return CustomEnvironment().observation_spaces[
-        next(iter(CustomEnvironment().observation_spaces))
-    ]
+    return obs_space
 
 
 policies = {
@@ -35,9 +33,9 @@ policies = {
             BotPolicy,
             get_observation_space(),
             get_action_space(),
-            {"model": {}},
+            {},
         )
-        for i in range(TOTAL_PLAYERS)
+        for i in range(N_PLAYERS)
     },
     **{
         "p0": (
@@ -146,8 +144,8 @@ class LeaguePlayCallback(DefaultCallbacks):
         snapshot_policy.set_state(main_policy.get_state())
         algorithm.set_weights({snapshot_id: main_policy.get_weights()})
         chosen = random.sample(
-            sorted(policy_pool.keys()), 8 - self.n_trainable_players
-        )  # XXX what the 8
+            sorted(policy_pool.keys()), N_PLAYERS - self.n_trainable_players
+        )
         # force at least one bot for stability
         if not any([p.startswith("bot") for p in chosen]):
             chosen[0] = "bot0"
@@ -160,6 +158,13 @@ class LeaguePlayCallback(DefaultCallbacks):
 
         algorithm.env_runner_group.foreach_env_runner(
             lambda w: w.set_policy_mapping_fn(mapping_fn)
+        )
+        colors_list = []
+        for agent_id in range(N_PLAYERS):
+            pid = mapping_fn(agent_id, None)
+            colors_list.append(POLICY_COLORS[pid])
+        algorithm.env_runner_group.foreach_env_runner(
+            lambda w: w.foreach_env(lambda env: env.update_colors(colors_list)),
         )
 
     def on_algorithm_init(
