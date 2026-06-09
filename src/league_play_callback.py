@@ -1,4 +1,3 @@
-import random
 import numpy as np
 from itertools import combinations
 from ray.rllib.algorithms.callbacks import DefaultCallbacks
@@ -12,7 +11,7 @@ from strategy_config import N_PLAYERS, POLICY_COLORS
 from prepare_env import make_env
 
 
-NUM_FROZEN_POLICIES = N_PLAYERS
+NUM_FROZEN_POLICIES = N_PLAYERS // 2
 # XXX now we have the same action and obs for any agent.
 env = make_env().par_env
 act_space = next(iter(env.action_spaces.values()))
@@ -35,7 +34,7 @@ policies = {
             get_action_space(),
             {},
         )
-        for i in range(N_PLAYERS)
+        for i in range(N_PLAYERS // 2)
     },
     **{
         "p0": (
@@ -143,8 +142,10 @@ class LeaguePlayCallback(DefaultCallbacks):
 
         snapshot_policy.set_state(main_policy.get_state())
         algorithm.set_weights({snapshot_id: main_policy.get_weights()})
-        chosen = random.sample(
-            sorted(policy_pool.keys()), N_PLAYERS - self.n_trainable_players
+        chosen = np.random.choice(
+            sorted(policy_pool.keys()),
+            N_PLAYERS - self.n_trainable_players,
+            replace=True,
         )
         # force at least one bot for stability
         if not any([p.startswith("bot") for p in chosen]):
@@ -164,7 +165,9 @@ class LeaguePlayCallback(DefaultCallbacks):
             pid = mapping_fn(agent_id, None)
             colors_list.append(POLICY_COLORS[pid])
         algorithm.env_runner_group.foreach_env_runner(
-            lambda w: w.foreach_env(lambda env: env.update_colors(colors_list)),
+            lambda w: w.foreach_env(
+                lambda env: env.par_env.update_game_colors(colors_list)
+            ),
         )
 
     def on_algorithm_init(

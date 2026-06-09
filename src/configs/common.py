@@ -1,3 +1,4 @@
+from strategy_config import N_PLAYERS
 from ray.rllib.algorithms.ppo import PPOConfig
 from prepare_env import ENV_NAME
 from players.model import MODEL_NAME
@@ -19,10 +20,8 @@ config = (
         ),  # will be changed in league callback
         count_steps_by="agent_steps",
         policies_to_train=["p0"],
-        policy_map_capacity=100,
-        policy_states_are_swappable=True,
     )
-    .debugging(log_level="WARN")
+    .debugging(log_level="DEBUG")
     .framework(framework="torch")
     .api_stack(
         enable_rl_module_and_learner=False,

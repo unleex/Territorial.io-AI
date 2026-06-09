@@ -34,11 +34,11 @@ class MultiDiscreteActionMaskModel(TorchModelV2, nn.Module, BasePlayer):
             nn.MaxPool2d(kernel_size=2, stride=2),
             nn.Conv2d(64, 128, kernel_size=3, stride=2, padding=1),
             nn.ReLU(),
-            nn.MaxPool2d(kernel_size=2, stride=2),
             # dilation to look at broader territory
-            nn.Conv2d(128, 256, kernel_size=3, stride=1, padding=1, dilation=2),
+            nn.Conv2d(128, 128, kernel_size=3, stride=1, padding=1, dilation=2),
             nn.ReLU(),
-            nn.Conv2d(256, 256, kernel_size=3, stride=1, padding=1),
+            nn.MaxPool2d(kernel_size=2, stride=2),
+            nn.Conv2d(128, 128, kernel_size=3, stride=1, padding=1),
             nn.ReLU(),
             nn.Flatten(),
         )
@@ -51,15 +51,13 @@ class MultiDiscreteActionMaskModel(TorchModelV2, nn.Module, BasePlayer):
         self.trunk = nn.Sequential(
             nn.Linear(flat_size + stat_size, 1024),
             nn.ReLU(),
+            nn.Linear(1024, 1024),
+            nn.ReLU(),
             nn.Linear(1024, 512),
             nn.ReLU(),
-            nn.Linear(512, 512),
-            nn.ReLU(),
-            nn.Linear(512, 256),
-            nn.ReLU(),
         )
-        self.policy_head = nn.Linear(256, num_outputs)
-        self.value_head = nn.Linear(256, 1)
+        self.policy_head = nn.Linear(512, num_outputs)
+        self.value_head = nn.Linear(512, 1)
         self._value_out = None
 
     def forward(self, input_dict, state, seq_lens):
