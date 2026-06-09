@@ -263,8 +263,18 @@ class CustomEnvironment(ParallelEnv):
             truncations[agent] = is_timeout if is_alive else False
             infos[agent] = {"agent_id": agent}
             obs[agent] = self.observe(agent)
-            if terminations[agent]:  # agent is removed later
-                place = len(self.game.id_to_country)
+            if terminations[agent] or truncations[agent]:  # agent is removed later
+                if truncations[agent]:
+                    # The game timed out. Rank everyone currently alive by size.
+                    alive_agents = [
+                        a for a in self.agents if a in self.game.id_to_country
+                    ]
+                    alive_agents.sort(
+                        key=lambda a: self.game.id_to_country[a].size, reverse=True
+                    )
+                    place = alive_agents.index(agent) + 1
+                else:
+                    place = len(self.game.id_to_country)
                 # 1 for first, -1 for last and linear
                 rewards[agent] += (
                     2

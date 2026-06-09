@@ -12,7 +12,7 @@ from players.model import MODEL_NAME
 
 # XXX what the
 TOTAL_PLAYERS = 8
-NUM_FROZEN_POLICIES = 3
+NUM_FROZEN_POLICIES = 4
 
 
 def get_action_space():
