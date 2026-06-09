@@ -46,7 +46,7 @@ class CustomEnvironment(ParallelEnv):
         self.ticks_delta = 1
         self.render_mode = None
         self.rendering = rendering
-        self.obs_stack_size = 4
+        self.obs_stack_size = 1
         self.n_commit_bins = 11
         self.agents = []
         self._prepare()

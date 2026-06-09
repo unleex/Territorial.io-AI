@@ -26,7 +26,7 @@ def train():
         checkpoint_freq=20,
         callbacks=[WandbLoggerCallback("Territorial.io")],
         # resume=True,
-        restore="/home2/mrgaschenko/Territorial.io-AI/logs/custom_env/all_pretrained_agents/PPO_custom_env_aa033_00000_0_2026-06-07_22-11-19/checkpoint_000054",
+        # restore="/home2/mrgaschenko/Territorial.io-AI/logs/custom_env/all_pretrained_agents/PPO_custom_env_aa033_00000_0_2026-06-07_22-11-19/checkpoint_000054",
     )
 
 
