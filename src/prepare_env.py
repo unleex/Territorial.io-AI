@@ -5,10 +5,10 @@ from environment import CustomEnvironment
 from strategy_config import N_PLAYERS, MAP_SIZE
 
 
-def make_env(_=None):
+def make_env(_=None, render=False):
     rows, cols = MAP_SIZE
     base = CustomEnvironment(
-        rendering=False,
+        rendering=render,
         grid_rows=rows,
         grid_columns=cols,
         n_players=N_PLAYERS,

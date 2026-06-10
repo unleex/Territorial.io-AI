@@ -41,7 +41,7 @@ class CustomEnvironment(ParallelEnv):
 
         self.grid_columns = grid_columns
         self.grid_rows = grid_rows
-        self.max_steps = 5000
+        self.max_steps = 3000
         self.reward_convexity = 1.5
         self.ticks_delta = 1
         self.render_mode = None

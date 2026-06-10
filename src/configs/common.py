@@ -21,7 +21,7 @@ config = (
         count_steps_by="agent_steps",
         policies_to_train=["p0"],
     )
-    .debugging(log_level="DEBUG")
+    .debugging(log_level="INFO")
     .framework(framework="torch")
     .api_stack(
         enable_rl_module_and_learner=False,
@@ -29,7 +29,7 @@ config = (
     )
     .callbacks(MergedCallback)
     # .checkpointing(checkpoint_trainable_policies_only=True)
-)
+).experimental(_disable_preprocessor_api=True)
 training_params = dict(
     train_batch_size=None,
     minibatch_size=None,

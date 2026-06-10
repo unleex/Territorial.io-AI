@@ -7,6 +7,11 @@ import ray
 from log import RUN_NAME
 from ray.air.integrations.wandb import WandbLoggerCallback
 
+from ray.rllib.algorithms.registry import POLICIES
+from players.bot import BotPolicy
+
+POLICIES["BotPolicy"] = BotPolicy
+
 
 def train():
     ray.init(
@@ -18,7 +23,7 @@ def train():
     tune.run(
         "PPO",
         name=RUN_NAME,
-        stop={"timesteps_total": 24_000_000},
+        stop={"timesteps_total": 10_000_000},
         storage_path=storage_uri,
         config=config.to_dict(),
         reuse_actors=True,

@@ -1,14 +1,12 @@
-from configs.mac_config import config
+from config import config
 import log
 from pprint import pprint
-import ray
 
 if __name__ == "__main__":
     log.VIDEO_SAVE_FREQ = 1
     log.EVALUATION = True
-    ray.init(_temp_dir="/Users/st2/tmp")
     config = config.evaluation(
-        evaluation_duration=1,
+        evaluation_duration=10,
         evaluation_duration_unit="episodes",
     )
     algo = config.build_algo()

@@ -1,3 +1,6 @@
+from pathlib import Path
+
+
 class EloRating:
     """
     Standard ELO rating system adapted for team-vs-team matchups.
@@ -53,3 +56,18 @@ class EloRating:
         # We treat this entire batch as 1 macro-match step for tracking history
         self.games_played[name_a] += 1
         self.games_played[name_b] += 1
+
+    def summary(self) -> str:
+        rows = sorted(self.ratings.items(), key=lambda x: x[1], reverse=True)
+        lines = [
+            "=" * 56,
+            f"{'ELO RANKINGS':^56}",
+            "=" * 56,
+            f"  {'Model':<36} {'ELO':>6}  {'Games':>5}",
+            "-" * 56,
+        ]
+        for name, rating in rows:
+            short = Path(name).parent.name if "/" in name else name
+            lines.append(f"  {short:<36} {rating:>6.1f}  {self.games_played[name]:>5}")
+        lines.append("=" * 56)
+        return "\n".join(lines)

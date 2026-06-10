@@ -47,7 +47,9 @@ class GameRenderer:
             self.im.set_data(img)
 
         # 3. Update Attack Information
-        target_color = self.colors[target_player] if target_player != -1 else "gray"
+        target_color = (
+            self.colors[target_player] if target_player not in (-1, None) else "gray"
+        )
 
         info_str = (
             f"CURRENT ATTACK\n"

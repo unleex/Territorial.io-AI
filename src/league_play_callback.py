@@ -12,6 +12,7 @@ from prepare_env import make_env
 
 
 NUM_FROZEN_POLICIES = N_PLAYERS // 2
+NUM_BOT_POLICIES = N_PLAYERS // 2
 # XXX now we have the same action and obs for any agent.
 env = make_env().par_env
 act_space = next(iter(env.action_spaces.values()))
@@ -34,7 +35,7 @@ policies = {
             get_action_space(),
             {},
         )
-        for i in range(N_PLAYERS // 2)
+        for i in range(NUM_BOT_POLICIES)
     },
     **{
         "p0": (
@@ -206,7 +207,7 @@ class LeaguePlayCallback(DefaultCallbacks):
         for policy_id, rating in self.elo.ratings.items():
             custom_metrics[f"{policy_id}/elo"] = rating
 
-        print(self.elo.summary())
+        # print(self.elo.summary())
 
         avg_best_place = custom_metrics.get("p0/avg_place_mean", float("inf"))
         if avg_best_place <= self.avg_place_threshold:

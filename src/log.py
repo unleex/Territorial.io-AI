@@ -13,7 +13,7 @@ import os
 RUN_NAME = "all_pretrained_agents"
 VIDEO_LOG_DIR = (Path("logs").absolute() / ENV_NAME / RUN_NAME / "videos").expanduser()
 VIDEO_LOG_DIR.mkdir(exist_ok=True, parents=True)
-VIDEO_SAVE_FREQ = 20
+VIDEO_SAVE_FREQ = 5
 EVALUATION = False
 if "video_logdir" not in os.environ:
     logdir = VIDEO_LOG_DIR / datetime.now().strftime("%Y-%m-%d_%H-%M-%S")

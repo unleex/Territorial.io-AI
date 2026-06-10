@@ -27,10 +27,14 @@ class BotPolicy(Policy, BasePlayer):
     ):
         batch_size = len(obs_batch)
         if worker is None:
-            warnings.warn(
-                "Bot policy compute_actions didn't receive the worker, returning."
-            )
-            return [self.action_space.sample() for _ in range(len(obs_batch))], [], {}
+            warnings.warn("Bot policy compute_actions didn't receive the worker, returning.")
+            
+            if isinstance(obs_batch, dict):
+                batch_size = len(next(iter(obs_batch.values())))
+            else:
+                batch_size = len(obs_batch)
+                
+            return [self.action_space.sample() for _ in range(batch_size)], [], {}
 
         sub_envs = worker.env.get_sub_environments()
         actions = []
@@ -43,7 +47,7 @@ class BotPolicy(Policy, BasePlayer):
             env_instance: "CustomEnvironment" = sub_envs[env_id]
             game = env_instance.game
             env_agent_id = info_batch[i]["agent_id"]
-            agent_country = game.id_to_country.get(env_agent_id)
+            agent_country = game.id_to_country[env_agent_id]
             target, commit = self.runai(
                 game, agent_country
             )  # FIXME bot algo doesn't account for env.tick() in between
