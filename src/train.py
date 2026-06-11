@@ -17,7 +17,7 @@ def train():
     ray.init(
         num_cpus=NUM_CPUS,
         num_gpus=NUM_GPUS,
-        _temp_dir="/home2/mrgaschenko/Territorial.io-AI/tmp",
+        # _temp_dir="/home2/mrgaschenko/Territorial.io-AI/tmp",
     )
     storage_uri = (Path("logs") / ENV_NAME).expanduser().resolve().as_uri()
     tune.run(

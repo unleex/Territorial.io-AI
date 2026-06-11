@@ -6,6 +6,8 @@ from ray.rllib.models.modelv2 import restore_original_dimensions
 from ray.rllib.models.torch.recurrent_net import RecurrentNetwork
 from players.base_player import BasePlayer
 
+LSTM_HIDDEN_SIZE = 128
+
 
 class MultiDiscreteActionMaskModel(RecurrentNetwork, nn.Module, BasePlayer):
     """TorchModelV2 for Dict(obs, action_mask) + MultiDiscrete actions."""
@@ -59,14 +61,16 @@ class MultiDiscreteActionMaskModel(RecurrentNetwork, nn.Module, BasePlayer):
             nn.ReLU(),
         )
 
-        self.lstm = nn.LSTM(input_size=256, hidden_size=128, batch_first=True)
+        self.lstm = nn.LSTM(
+            input_size=256, hidden_size=LSTM_HIDDEN_SIZE, batch_first=True
+        )
 
-        self.policy_head = nn.Linear(128, num_outputs)
-        self.value_head = nn.Linear(256, 1)
+        self.policy_head = nn.Linear(LSTM_HIDDEN_SIZE, num_outputs)
+        self.value_head = nn.Linear(LSTM_HIDDEN_SIZE, 1)
         self._value_out = None
 
     def get_initial_state(self):
-        return [torch.zeros(128), torch.zeros(128)]
+        return [torch.zeros(LSTM_HIDDEN_SIZE), torch.zeros(LSTM_HIDDEN_SIZE)]
 
     def forward(self, input_dict, state, seq_lens):
         # Extract directly from the obs dict, no need for restore_original_dimensions
@@ -79,6 +83,8 @@ class MultiDiscreteActionMaskModel(RecurrentNetwork, nn.Module, BasePlayer):
         features = self.trunk(combined_features)
 
         B = len(seq_lens)
+        if features.shape[0] < B:
+            B = features.shape[0]
         T = features.shape[0] // B
         lstm_in = features.view(B, T, 256)
 
@@ -86,13 +92,13 @@ class MultiDiscreteActionMaskModel(RecurrentNetwork, nn.Module, BasePlayer):
         c = state[1].unsqueeze(0).contiguous()
         lstm_out, [h_new, c_new] = self.lstm(lstm_in, (h, c))
 
-        flat_lstm_out = lstm_out.reshape(B * T, 128)
+        flat_lstm_out = lstm_out.reshape(B * T, LSTM_HIDDEN_SIZE)
         logits = self.policy_head(flat_lstm_out)
 
         inf_mask = torch.clamp(torch.log(action_mask), min=-1e20)
         masked_logits = logits + inf_mask
 
-        self._value_out = self.value_head(features).squeeze(-1)
+        self._value_out = self.value_head(flat_lstm_out).squeeze(-1)
         state_out = [h_new.squeeze(0), c_new.squeeze(0)]
 
         return masked_logits, state_out

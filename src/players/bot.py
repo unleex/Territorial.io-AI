@@ -27,13 +27,15 @@ class BotPolicy(Policy, BasePlayer):
     ):
         batch_size = len(obs_batch)
         if worker is None:
-            warnings.warn("Bot policy compute_actions didn't receive the worker, returning.")
-            
+            warnings.warn(
+                "Bot policy compute_actions didn't receive the worker, returning."
+            )
+
             if isinstance(obs_batch, dict):
                 batch_size = len(next(iter(obs_batch.values())))
             else:
                 batch_size = len(obs_batch)
-                
+
             return [self.action_space.sample() for _ in range(batch_size)], [], {}
 
         sub_envs = worker.env.get_sub_environments()
@@ -57,7 +59,9 @@ class BotPolicy(Policy, BasePlayer):
             permuted_target = env_instance.permute_id(target, env_agent_id)
 
             ratio = commit / agent_country.money if agent_country.money > 0 else 0
-            commit_bin = np.round(np.clip(ratio * 10, 0, 10))
+            commit_bin = int(np.round(np.clip(ratio * 10, 0, 10)))
+            if commit > 0 and commit_bin == 0:
+                commit_bin = 1
 
             actions.append(np.array([permuted_target, commit_bin], dtype=np.int64))
 

@@ -21,14 +21,14 @@ config = (
         count_steps_by="agent_steps",
         policies_to_train=["p0"],
     )
-    .debugging(log_level="INFO")
+    .debugging(log_level="WARNING")
     .framework(framework="torch")
     .api_stack(
         enable_rl_module_and_learner=False,
         enable_env_runner_and_connector_v2=False,
     )
     .callbacks(MergedCallback)
-    # .checkpointing(checkpoint_trainable_policies_only=True)
+    .checkpointing(checkpoint_trainable_policies_only=True)
 ).experimental(_disable_preprocessor_api=True)
 training_params = dict(
     train_batch_size=None,
