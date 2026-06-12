@@ -9,11 +9,6 @@ from game.game import Game
 from gymnasium import spaces
 from game.gameFuncs import findNeighbours
 from strategy_config import POLICY_COLORS
-# mock_info = {0: {}}
-
-
-# TODO multiple agents: create a pool of agents and bootstrap
-# them each time for more diversity!
 
 
 class CustomEnvironment(ParallelEnv):
@@ -28,12 +23,8 @@ class CustomEnvironment(ParallelEnv):
         return int(self.reverse_id_permutation[agent][permuted_id] - 1)
 
     def __init__(self, rendering, n_players, grid_rows, grid_columns):
-        """
-        ticks_delta: int (default = 1) how many game ticks to run between agent's decisions
-        """
         super().__init__()
         self.n_players = n_players
-        # TODO remove this "legacy"
         self.n_agents = n_players
         self.id_permutation: Dict[int, np.ndarray] = {}
         self.reverse_id_permutation: Dict[int, np.ndarray] = {}
@@ -49,6 +40,7 @@ class CustomEnvironment(ParallelEnv):
         self.obs_stack_size = 1
         self.n_commit_bins = 11
         self.agents = []
+        self.country_colors = list(POLICY_COLORS.values())[: self.n_players]
         self._prepare()
 
         self.terminations = {agent: False for agent in self.possible_agents}
@@ -56,7 +48,6 @@ class CustomEnvironment(ParallelEnv):
 
         self.saved_stats: Dict[int, np.ndarray] = {}
 
-        # map of one-hot vectors (each player + neutral)
         self.n_board_channels = self.game.n_players + 1
         self.n_stats_channels = self.game.n_players * 2
         obs_shape = (
@@ -64,13 +55,15 @@ class CustomEnvironment(ParallelEnv):
             self.game.n_grid_rows,
             self.game.n_grid_columns,
         )
-        self.n_stats = self.game.n_players * 2
+
+        # INCREASE STATS SIZE BY 1 TO HOLD THE TIME HORIZON FEATURE
+        self.n_stats = (self.game.n_players * 2) + 1
         stats_shape = (self.n_stats,)
 
         self.action_spaces = {
             agent: spaces.MultiDiscrete([self.game.n_players + 1, self.n_commit_bins])
             for agent in self.possible_agents
-        }  # who to attack (or stall) + amount of troops (0%, 10%, 20%, ...)
+        }
         self.observation_spaces = {
             agent: spaces.Dict(
                 {
@@ -100,10 +93,9 @@ class CustomEnvironment(ParallelEnv):
     def update_game_colors(self, new_colors: list[str]):
         assert len(new_colors) == self.n_players
         self.game.countryColors = new_colors
+        self.country_colors = new_colors
 
     def _build_permutations(self, agent):
-        # Maps original ids in [-1, n_players - 1] to [0, n_players].
-        # Array index for original_id is (original_id + 1).
         id_perm = np.zeros(self.game.n_players + 1, dtype=int)
         id_perm[agent + 1] = 1
         others = [
@@ -128,14 +120,14 @@ class CustomEnvironment(ParallelEnv):
             n_agents=self.n_agents,
             grid_rows=self.grid_rows,
             grid_columns=self.grid_columns,
-            country_colors=list(POLICY_COLORS.values())[: self.n_players],
+            country_colors=self.country_colors,
         )
         self.possible_agents = self.game.agents
         if self.rendering:
             self.renderer = GameRenderer(self.game.countryColors)
 
         unstacked_obs_shape = (
-            (self.game.n_players + 1),  # no self.obs_stack_size, we need raw one here
+            (self.game.n_players + 1),
             self.game.n_grid_rows,
             self.game.n_grid_columns,
         )
@@ -161,6 +153,8 @@ class CustomEnvironment(ParallelEnv):
         num_channels = self.game.n_players + 1
         one_hot = np.eye(num_channels, dtype=np.int8)[permuted_board]
         stats = np.zeros(self.n_stats, dtype=np.float32)
+
+        # Fill the country statistics (excluding the last time-step slot)
         for perm_idx in range(1, self.game.n_players + 1):
             original_id = self.unpermute_id(perm_idx, agent)
             stat_idx = perm_idx - 1
@@ -173,10 +167,10 @@ class CustomEnvironment(ParallelEnv):
                 stats[self.game.n_players + stat_idx] = (
                     c.size / self.game.n_grid_rows / self.game.n_grid_columns
                 )
-            # else: player is dead → stays 0.0
-        # Transpose to (Channels, Height, Width) for PyTorch/CNN compatibility
         # avoid roundoff errors that cause negatives
+        stats[-1] = float(self.current_step) / float(self.max_steps)
         stats = np.clip(stats, 0.0, 1.0)
+
         return {
             "observations": one_hot.transpose(2, 0, 1),
             "stats": stats,
@@ -252,12 +246,16 @@ class CustomEnvironment(ParallelEnv):
         for _ in range(self.ticks_delta):
             self.game.tick()
 
+        # INCREMENT CURRENT_STEP BEFORE GENERATING OBSERVATIONS
+        # This ensures the new observations immediately reflect the updated progression
+        self.current_step += 1
+
         for agent in self.agents:
             self._update_frames(agent)
 
         obs, rewards, terminations, truncations, infos = {}, {}, {}, {}, {}
-        self.current_step += 1
         is_timeout = self.current_step >= self.max_steps
+
         for agent in list(self.agents):
             is_alive = (
                 agent in self.game.id_to_country
@@ -273,6 +271,7 @@ class CustomEnvironment(ParallelEnv):
             truncations[agent] = is_timeout
             infos[agent] = {"agent_id": agent}
             obs[agent] = self.observe(agent)
+
             if terminations[agent] or truncations[agent]:
                 if truncations[agent]:
                     # The game timed out. Rank everyone currently alive by size.

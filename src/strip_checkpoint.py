@@ -1,7 +1,6 @@
 import os
 from ray.rllib.algorithms.algorithm import Algorithm
 from ray.tune import Tuner
-import players.model as model
 
 
 def filtered_checkpoint_from_policy_ids(
@@ -26,30 +25,6 @@ def filtered_checkpoint_from_policy_ids(
     os.makedirs(out_dir, exist_ok=True)
 
     return algo.save(out_dir)
-
-
-def restore_tune_with_filtered_checkpoint(
-    trainable,
-    config: dict,
-    filtered_checkpoint: str,
-    policies_to_train: list[str] | None = None,
-    **tuner_kwargs,
-):
-    cfg = dict(config)
-    ma = dict(cfg.get("multiagent", {}))
-
-    if policies_to_train is not None:
-        ma["policies_to_train"] = policies_to_train
-
-    cfg["multiagent"] = ma
-
-    tuner = Tuner(
-        trainable,
-        param_space=cfg,
-        restore=filtered_checkpoint,
-        **tuner_kwargs,
-    )
-    return tuner.fit()
 
 
 filtered_checkpoint_from_policy_ids(
