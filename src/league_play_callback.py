@@ -1,3 +1,4 @@
+import warnings
 import numpy as np
 from itertools import combinations
 from ray.rllib.algorithms.callbacks import DefaultCallbacks
@@ -140,9 +141,11 @@ class LeaguePlayCallback(DefaultCallbacks):
 
         main_policy = algorithm.get_policy("p0")
         snapshot_policy = algorithm.get_policy(snapshot_id)
-
-        snapshot_policy.set_state(main_policy.get_state())
-        algorithm.set_weights({snapshot_id: main_policy.get_weights()})
+        if snapshot_policy is not None:
+            snapshot_policy.set_state(main_policy.get_state())
+            algorithm.set_weights({snapshot_id: main_policy.get_weights()})
+        else:
+            warnings.warn("Snapshot policy not found.")
         chosen = np.random.choice(
             sorted(policy_pool.keys()),
             N_PLAYERS - self.n_trainable_players,
@@ -206,8 +209,6 @@ class LeaguePlayCallback(DefaultCallbacks):
 
         for policy_id, rating in self.elo.ratings.items():
             custom_metrics[f"{policy_id}/elo"] = rating
-
-        # print(self.elo.summary())
 
         avg_best_place = custom_metrics.get("p0/avg_place_mean", float("inf"))
         if avg_best_place <= self.avg_place_threshold:

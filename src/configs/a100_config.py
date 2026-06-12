@@ -1,6 +1,6 @@
 from configs.common import config, training_params, env_runners_params
 
-training_params["train_batch_size"] = 2048
+training_params["train_batch_size"] = 512
 training_params["minibatch_size"] = 256
 training_params["model"] = {
     "max_seq_len": 32,
