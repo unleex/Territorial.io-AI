@@ -1,5 +1,5 @@
 import random
-from typing import TYPE_CHECKING, Counter
+from typing import TYPE_CHECKING
 import numpy as np
 
 if TYPE_CHECKING:
@@ -33,6 +33,7 @@ def findNeighbours(game: "Game", target):
     return dict(zip(ids, counts))
 
 
+# Isn't used in the training anymore, see BotPolicy
 def runAi(game: "Game", agent: "country"):
     # Find weakest neighbour
     d = findNeighbours(game, agent.id)
@@ -54,7 +55,6 @@ def runAi(game: "Game", agent: "country"):
             or game.id_to_country[i].money < game.id_to_country[smallest].money
         ):
             smallest = i
-    ...
     # If the smallest neighbour is signifcantly smaller
     density = game.id_to_country[smallest].money / game.id_to_country[smallest].size
     if (

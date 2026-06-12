@@ -8,14 +8,20 @@ from pathlib import Path
 import imageio.v2 as imageio
 from matplotlib.colors import to_rgb
 from ray.rllib.env.env_runner import EnvRunner
+import os
 
-VIDEO_LOG_DIR = (Path("logs") / ENV_NAME / "PPO" / "videos").expanduser()
+RUN_NAME = "time_aware"
+VIDEO_LOG_DIR = (Path("logs").absolute() / ENV_NAME / RUN_NAME / "videos").expanduser()
 VIDEO_LOG_DIR.mkdir(exist_ok=True, parents=True)
+VIDEO_SAVE_FREQ = 5
+EVALUATION = False
+if "video_logdir" not in os.environ:
+    logdir = VIDEO_LOG_DIR / datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    logdir.mkdir(exist_ok=True, parents=True)
+    os.environ["video_logdir"] = str(logdir)
 
 
 class VideoCallback(RLlibCallback):
-    logdir = VIDEO_LOG_DIR / datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-
     @staticmethod
     def _render_frame(
         board: np.ndarray,
@@ -64,12 +70,12 @@ class VideoCallback(RLlibCallback):
 
     def __init__(self):
         super().__init__()
-        self.logdir.mkdir(exist_ok=True, parents=True)
-        self.save_freq = 1
+        self.logdir: str = os.environ["video_logdir"]
+        self.save_freq = VIDEO_SAVE_FREQ
         self.episode_counter = 0
 
     def on_episode_start(self, *, episode, worker: EnvRunner, **kwargs):
-        record = self.episode_counter % self.save_freq == 0 and worker.worker_index == 1
+        record = self.episode_counter % self.save_freq == 0
         episode.user_data["record"] = record
         episode.user_data["frames"] = []
         self.episode_counter += 1
@@ -102,6 +108,5 @@ class VideoCallback(RLlibCallback):
 
         if frames:
             fname = f"episode_{self.episode_counter}_{episode.episode_id}.mp4"
-            imageio.mimsave(self.logdir / fname, frames, fps=8)
-            # Crucial: Clear the list to free up the 188GB system RAM
+            imageio.mimsave(Path(self.logdir) / fname, frames, fps=8)
             frames.clear()
