@@ -5,6 +5,7 @@ import random
 from game.gameAI import findNeighbours
 import numpy as np
 import typing
+from strategy_config import BOT_EXPANSION_BOOST
 
 if typing.TYPE_CHECKING:
     from environment import CustomEnvironment
@@ -72,7 +73,8 @@ class BotPolicy(Policy, BasePlayer):
         if -1 in d:
             commit = int(5.0 * d[-1]) + 1
             if (
-                agent.money > random.randint(agent.size * 10, agent.size * 30)
+                agent.money
+                > random.randint(agent.size * 10, agent.size * 30) / BOT_EXPANSION_BOOST
                 and agent.money > commit
             ):
                 return -1, commit  # Exact amount for one layer

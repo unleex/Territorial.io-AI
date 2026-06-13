@@ -1,24 +1,48 @@
 from datetime import datetime
-from environment import CustomEnvironment
-import numpy as np
-from game.countryClass import country
-from prepare_env import ENV_NAME
-from ray.rllib.callbacks.callbacks import RLlibCallback
 from pathlib import Path
-import imageio.v2 as imageio
-from matplotlib.colors import to_rgb
-from ray.rllib.env.env_runner import EnvRunner
 import os
 
-RUN_NAME = "time_aware"
-VIDEO_LOG_DIR = (Path("logs").absolute() / ENV_NAME / RUN_NAME / "videos").expanduser()
-VIDEO_LOG_DIR.mkdir(exist_ok=True, parents=True)
+import imageio.v2 as imageio
+import numpy as np
+from matplotlib.colors import to_rgb
+
+from environment import CustomEnvironment
+from ray.rllib.callbacks.callbacks import RLlibCallback
+from ray.rllib.env.env_runner import EnvRunner
+from game.countryClass import country
+
+
+RUN_NAME = "scaled_reward"
 VIDEO_SAVE_FREQ = 5
-EVALUATION = False
+VIDEO_LOG_DIR = (
+    Path("logs").absolute() / "custom_env" / RUN_NAME / "videos"
+).expanduser()
+VIDEO_LOG_DIR.mkdir(exist_ok=True, parents=True)
+
 if "video_logdir" not in os.environ:
     logdir = VIDEO_LOG_DIR / datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     logdir.mkdir(exist_ok=True, parents=True)
     os.environ["video_logdir"] = str(logdir)
+
+
+def territory_border_mask(board: np.ndarray, owner: int) -> np.ndarray:
+    h, w = board.shape
+    mask = np.zeros((h, w), dtype=bool)
+    cells = np.argwhere(board == owner)
+
+    for r, c in cells:
+        if r == 0 or c == 0 or r == h - 1 or c == w - 1:
+            mask[r, c] = True
+            continue
+        if (
+            board[r - 1, c] != owner
+            or board[r + 1, c] != owner
+            or board[r, c - 1] != owner
+            or board[r, c + 1] != owner
+        ):
+            mask[r, c] = True
+
+    return mask
 
 
 class VideoCallback(RLlibCallback):
@@ -28,18 +52,20 @@ class VideoCallback(RLlibCallback):
         players: dict[int, country],
         colors: list,
         n_players: int,
-        cols: int,
-        rows: int,
+        attacked_targets=None,
     ) -> np.ndarray:
-        # 1. Draw the Map (Left Side)
+
         map_img = np.zeros((*board.shape, 3), dtype=np.float32)
         for i in range(n_players):
             map_img[board == i] = to_rgb(colors[i])
         map_img = (map_img * 255).astype(np.uint8)
 
-        # 2. Draw the Histogram (Right Side)
-        # We define a fixed width for the chart to keep memory low.
-        # Using 2 pixels per player as a minimum, or 40 pixels total.
+        if attacked_targets:
+            for target in attacked_targets:
+                if target in players:
+                    border = territory_border_mask(board, target)
+                    map_img[border] = np.array([255, 0, 0], dtype=np.uint8)
+
         h, w = board.shape
         hist_w = max(n_players * 2, 40)
         hist_img = np.zeros((h, hist_w, 3), dtype=np.uint8)
@@ -48,24 +74,17 @@ class VideoCallback(RLlibCallback):
         hist_img.fill(30)
 
         bar_width = hist_w // n_players
+        biggest = max((p.money for p in players.values()), default=1)
 
         for i, player in players.items():
-            biggest = max(p.money for p in players.values())
-            scaled = player.money / biggest
-
-            # Calculate how many pixels high the bar should be
+            scaled = player.money / biggest if biggest > 0 else 0.0
             bar_h = int(scaled * h)
-
             start_x = i * bar_width
             end_x = start_x + bar_width
 
             color_rgb = (np.array(to_rgb(colors[i])) * 255).astype(np.uint8)
-
-            # NumPy indexing: [Y_start:Y_end, X_start:X_end]
-            # We draw from the bottom (h) upwards (h - bar_h)
             hist_img[0:bar_h, start_x:end_x] = color_rgb
 
-        # 3. Concatenate the map and the histogram side-by-side
         return np.hstack((map_img, np.flipud(hist_img)))
 
     def __init__(self):
@@ -88,14 +107,18 @@ class VideoCallback(RLlibCallback):
         actual_env: CustomEnvironment = sub_envs[env_index].par_env
         game = actual_env.game
 
-        # Pass the required game state variables into our optimized renderer
+        attacked_targets = []
+        for agent_id in episode.get_agents():
+            info = episode.last_info_for(agent_id=agent_id)
+            if info and "attacks" in info:
+                attacked_targets.extend([a["target"] for a in info["attacks"]])
+
         frame = self._render_frame(
             board=np.array(game.board),
             players=game.id_to_country,
             colors=game.countryColors,
             n_players=game.n_players,
-            cols=game.n_grid_columns,
-            rows=game.n_grid_rows,
+            attacked_targets=attacked_targets,
         )
 
         episode.user_data["frames"].append(frame)

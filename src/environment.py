@@ -223,6 +223,7 @@ class CustomEnvironment(ParallelEnv):
         self.saved_stats[agent] = obs["stats"]
 
     def step(self, action: Dict[int, Any]):
+        attacks = []
         old_player_size = {
             agent: (
                 self.game.id_to_country[agent].size
@@ -231,7 +232,6 @@ class CustomEnvironment(ParallelEnv):
             )
             for agent in self.possible_agents
         }
-
         for agent in self.agents:
             if agent not in self.game.id_to_country:
                 continue
@@ -241,6 +241,9 @@ class CustomEnvironment(ParallelEnv):
                 self.game.id_to_country[agent].money * commited_bin / 10.0
             )  # Convert 0..10 to 0.0..1.0
             target = self.unpermute_id(target, agent)
+            attacks.append(
+                {"attacker": agent, "target": target, "commit": float(commited)}
+            )
             self.game.id_to_country[agent].attackInit(self.game, target, commited)
 
         for _ in range(self.ticks_delta):
@@ -256,7 +259,7 @@ class CustomEnvironment(ParallelEnv):
         obs, rewards, terminations, truncations, infos = {}, {}, {}, {}, {}
         is_timeout = self.current_step >= self.max_steps
 
-        for agent in list(self.agents):
+        for agent in self.agents:
             is_alive = (
                 agent in self.game.id_to_country
                 and self.game.id_to_country[agent].size > 0
@@ -294,6 +297,8 @@ class CustomEnvironment(ParallelEnv):
                     - 1
                 )
                 infos[agent]["place"] = place
+        for agent in self.agents:
+            infos[agent]["attacks"] = attacks.copy()
 
         self.truncations = truncations
         self.terminations = terminations

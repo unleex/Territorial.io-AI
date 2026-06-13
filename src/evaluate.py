@@ -4,9 +4,8 @@ from pprint import pprint
 
 if __name__ == "__main__":
     log.VIDEO_SAVE_FREQ = 1
-    log.EVALUATION = True
     config = config.evaluation(
-        evaluation_duration=10,
+        evaluation_duration=1000,
         evaluation_duration_unit="episodes",
     )
     algo = config.build_algo()

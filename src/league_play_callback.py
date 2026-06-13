@@ -28,16 +28,17 @@ def get_observation_space():
     return obs_space
 
 
+bot_policies = {
+    f"bot{i}": (
+        BotPolicy,
+        get_observation_space(),
+        get_action_space(),
+        {},
+    )
+    for i in range(NUM_BOT_POLICIES)
+}
 policies = {
-    **{
-        f"bot{i}": (
-            BotPolicy,
-            get_observation_space(),
-            get_action_space(),
-            {},
-        )
-        for i in range(NUM_BOT_POLICIES)
-    },
+    **bot_policies,
     **{
         "p0": (
             None,
@@ -127,7 +128,11 @@ class LeaguePlayCallback(DefaultCallbacks):
                 episode.custom_metrics[f"matchup_score/{p_a}_vs_{p_b}"] = score_a
 
     def update_league(
-        self, algorithm: Algorithm, metrics_logger: MetricsLogger, result=None
+        self,
+        algorithm: Algorithm,
+        metrics_logger: MetricsLogger,
+        result=None,
+        initial=False,
     ):
         metrics_logger.log_value(
             key="league_updates",
@@ -146,11 +151,19 @@ class LeaguePlayCallback(DefaultCallbacks):
             algorithm.set_weights({snapshot_id: main_policy.get_weights()})
         else:
             warnings.warn("Snapshot policy not found.")
-        chosen = np.random.choice(
-            sorted(policy_pool.keys()),
-            N_PLAYERS - self.n_trainable_players,
-            replace=True,
-        )
+        # reduce randomness when agent is fresh
+        if initial:
+            chosen = np.random.choice(
+                sorted(bot_policies.keys()),
+                N_PLAYERS - self.n_trainable_players,
+                replace=True,
+            )
+        else:
+            chosen = np.random.choice(
+                sorted(policy_pool.keys()),
+                N_PLAYERS - self.n_trainable_players,
+                replace=True,
+            )
         # force at least one bot for stability
         if not any([p.startswith("bot") for p in chosen]):
             chosen[0] = "bot0"
@@ -182,7 +195,7 @@ class LeaguePlayCallback(DefaultCallbacks):
         **kwargs,
     ) -> None:
         main_policy = algorithm.get_policy("p0")
-        self.update_league(algorithm, metrics_logger)
+        self.update_league(algorithm, metrics_logger, initial=True)
         for new_policy_id in self.available_snapshots:
             algorithm.set_weights({new_policy_id: main_policy.get_weights()})
 
