@@ -1,10 +1,6 @@
 import matplotlib.pyplot as plt
-from typing import Literal
 from matplotlib.colors import to_rgb
 import numpy as np
-import os
-import subprocess
-import datetime
 
 
 class GameRenderer:

@@ -28,12 +28,12 @@ config = (
         enable_env_runner_and_connector_v2=False,
     )
     .callbacks(MergedCallback)
-    .checkpointing(checkpoint_trainable_policies_only=True)
+    # .checkpointing(checkpoint_trainable_policies_only=True)
 ).experimental(_disable_preprocessor_api=True)
 training_params = dict(
     train_batch_size=None,
     minibatch_size=None,
-    lr=2e-4,
+    lr=2e-5,
     gamma=0.999,
     lambda_=0.9,
     use_gae=True,
