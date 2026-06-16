@@ -29,7 +29,7 @@ class CustomEnvironment(ParallelEnv):
         self.id_permutation: Dict[int, np.ndarray] = {}
         self.reverse_id_permutation: Dict[int, np.ndarray] = {}
         self.map_obs_deque: Dict[int, deque[np.ndarray]] = {}
-
+        self.policy_mapping = {}
         self.grid_columns = grid_columns
         self.grid_rows = grid_rows
         self.max_steps = 3000
@@ -184,6 +184,14 @@ class CustomEnvironment(ParallelEnv):
         return deltas
 
     def observe(self, agent=None):
+        policy_id = self.policy_mapping.get(agent, None)
+
+        if policy_id is not None and policy_id.startswith("bot"):
+            return self._observe_bot(agent)
+        else:
+            return self._observe_nn(agent)
+
+    def _observe_nn(self, agent=None):
         return {
             "observations": np.concatenate(self._get_deltas(agent)),
             "stats": self.saved_stats[agent],

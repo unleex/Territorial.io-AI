@@ -187,6 +187,15 @@ class LeaguePlayCallback(DefaultCallbacks):
             ),
         )
 
+        def assign_roles(env):
+            env.par_env.policy_mapping = {
+                agent_id: mapping_fn(agent_id, None) for agent_id in range(N_PLAYERS)
+            }
+
+        algorithm.env_runner_group.foreach_env_runner(
+            lambda w: w.foreach_env(assign_roles)
+        )
+
     def on_algorithm_init(
         self,
         *,
