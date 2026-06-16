@@ -206,8 +206,9 @@ class LeaguePlayCallback(DefaultCallbacks):
             key="league_updates",
             value=self.current_opponent,
         )
-        env_runners_dict = result.get("env_runners", {})
-        custom_metrics = env_runners_dict.get("custom_metrics", {})
+        custom_metrics = result.get("custom_metrics", {})
+        if not custom_metrics:
+            warnings.warn("No metrics found!")
         for key, empirical_win_rate in custom_metrics.items():
             if key.startswith("matchup_score/") and key.endswith("_mean"):
                 # Clean the key to extract policy names

@@ -1,1 +1,1 @@
-from configs.strategies.big_world import *
+from configs.strategies.small_world import *

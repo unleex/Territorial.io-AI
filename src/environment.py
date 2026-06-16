@@ -8,9 +8,10 @@ from pettingzoo import ParallelEnv
 from game.game import Game
 from gymnasium import spaces
 from game.gameFuncs import findNeighbours
-from strategy_config import POLICY_COLORS
+from strategy_config import POLICY_COLORS, GAME_MAX_TURNS
 
 
+# FIXME self-attacks occur smh. isn't it random sampling?
 class CustomEnvironment(ParallelEnv):
     metadata = {
         "name": "custom_environment_v0",
@@ -32,7 +33,7 @@ class CustomEnvironment(ParallelEnv):
 
         self.grid_columns = grid_columns
         self.grid_rows = grid_rows
-        self.max_steps = 3000
+        self.max_steps = GAME_MAX_TURNS
         self.reward_convexity = 1.5
         self.ticks_delta = 1
         self.render_mode = None
@@ -56,7 +57,6 @@ class CustomEnvironment(ParallelEnv):
             self.game.n_grid_columns,
         )
 
-        # INCREASE STATS SIZE BY 1 TO HOLD THE TIME HORIZON FEATURE
         self.n_stats = (self.game.n_players * 2) + 1
         stats_shape = (self.n_stats,)
 
@@ -92,7 +92,6 @@ class CustomEnvironment(ParallelEnv):
 
     def update_game_colors(self, new_colors: list[str]):
         assert len(new_colors) == self.n_players
-        self.game.countryColors = new_colors
         self.country_colors = new_colors
 
     def _build_permutations(self, agent):
