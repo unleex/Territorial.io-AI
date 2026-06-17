@@ -1,14 +1,10 @@
+# BotPolicy update
 from ray.rllib.policy.policy import Policy
 from players.base_player import BasePlayer
-import warnings
 import random
-from game.gameAI import findNeighbours
+from game.gameAI import find_neighbours
 import numpy as np
-import typing
 from strategy_config import BOT_EXPANSION_BOOST
-
-if typing.TYPE_CHECKING:
-    from environment import CustomEnvironment
 
 
 class BotPolicy(Policy, BasePlayer):
@@ -18,42 +14,15 @@ class BotPolicy(Policy, BasePlayer):
     def compute_actions(
         self,
         obs_batch,
-        state_batches=None,
-        prev_action_batch=None,
-        prev_reward_batch=None,
         info_batch=None,
         episodes=None,
-        explore=None,
-        timestep=None,
-        agent_id=None,
-        worker=None,
         **kwargs,
     ):
         batch_size = len(obs_batch)
-        if worker is None:
-            warnings.warn(
-                "Bot policy compute_actions didn't receive the worker, sampling random."
-            )
-
-            if isinstance(obs_batch, dict):
-                batch_size = len(next(iter(obs_batch.values())))
-            else:
-                batch_size = len(obs_batch)
-
-            return [self.action_space.sample() for _ in range(batch_size)], [], {}
-
-        sub_envs = worker.env.get_sub_environments()
         actions = []
         for i in range(batch_size):
             episode = episodes[i]
-
-            env_id = episode.env_id
-
-            # Grab game instance for this specific observation
-            env_instance: "CustomEnvironment" = sub_envs[env_id]
-            game = env_instance.game
             env_agent_id = info_batch[i]["agent_id"]
-            agent_country = game.id_to_country[env_agent_id]
 
             if "bot_state" not in episode.user_data:
                 episode.user_data["bot_state"] = {}
@@ -61,49 +30,63 @@ class BotPolicy(Policy, BasePlayer):
                 env_agent_id,
                 {"target": None, "ema_money": {}},
             )
+            obs = obs_batch[i]
 
             target, commit = self.runai(
-                game, agent_country, bot_state
-            )  # FIXME bot algo doesn't account for env.tick() in between
+                agent_id=env_agent_id,
+                bot_state=bot_state,
+                board=obs["board"],
+                id_to_money=obs["id_to_money"],
+                id_to_size=obs["id_to_size"],
+                agent_aggro=obs["agent_aggro"][0],
+                tooBig=obs["tooBig"][0],
+                threshold=obs["threshold"][0],
+            )
+
             if target is None:
                 actions.append(np.array([0, 0], dtype=np.int64))
                 continue
-            permuted_target = env_instance.permute_id(target, env_agent_id)
 
-            ratio = commit / agent_country.money if agent_country.money > 0 else 0
-            commit_bin = int(np.round(np.clip(ratio * 10, 0, 10)))
-            if commit > 0 and commit_bin == 0:
-                commit_bin = 1
-
-            actions.append(np.array([permuted_target, commit_bin], dtype=np.int64))
+            actions.append(np.array([target, commit], dtype=np.int64))
 
         return np.array(actions, dtype=np.int64), [], {}
 
-    def runai(self, game, agent, bot_state):
-        d = findNeighbours(game, agent.id)
+    def runai(
+        self,
+        *,
+        agent_id: int,
+        bot_state,
+        board,
+        id_to_money,
+        id_to_size,
+        agent_aggro,
+        tooBig,
+        threshold,
+    ):
+        d = find_neighbours(board, agent_id)
 
-        # Forget dead / invalid current target immediately.
+        # Forget dead / invalid current target immediately
         current_target = bot_state.get("target", None)
-        if current_target not in d or current_target not in game.id_to_country:
+        if current_target not in d or current_target not in id_to_money:
             current_target = None
 
-        # Neutral expansion gets priority.
+        # If neutral territory is nearby, capture immediately
         if -1 in d:
             commit = int(5.0 * d[-1]) + 1
             if (
-                agent.money
-                > random.randint(agent.size * 10, agent.size * 30) / BOT_EXPANSION_BOOST
-                and agent.money > commit
+                id_to_money[agent_id]
+                > random.randint(id_to_size[agent_id] * 10, id_to_size[agent_id] * 30)
+                / BOT_EXPANSION_BOOST
+                and id_to_money[agent_id] > commit
             ):
                 bot_state["target"] = None
-                return -1, commit  # Exact amount for one layer
+                return -1, commit
 
-        # Update EMA scores for currently visible neighbors.
-        ema_money = bot_state["ema_money"]
+        ema_money: dict = bot_state["ema_money"]
         for i in d:
             if i == -1:
                 continue
-            money = game.id_to_country[i].money
+            money = id_to_money[i]
             prev = ema_money.get(i, money)
             ema_money[i] = (
                 self.TARGET_EMA_ALPHA * money + (1.0 - self.TARGET_EMA_ALPHA) * prev
@@ -113,51 +96,46 @@ class BotPolicy(Policy, BasePlayer):
             bot_state["target"] = None
             return None, None
 
-        # Find smallest neighbour by smoothed money.
+        # Find smallest neighbour by smoothed money
         smallest = None
         smallest_score = None
         for i in d:
             if i == -1:
                 continue
-            score = ema_money.get(i, game.id_to_country[i].money)
+            score = ema_money.get(i, id_to_money[i])
             if smallest is None or score < smallest_score:
                 smallest = i
                 smallest_score = score
 
-        if smallest is None:
+        if smallest_score is None:
             bot_state["target"] = None
             return None, None
 
-        # Keep current target unless another neighbour is clearly better.
+        # Keep current target unless another neighbour is clearly better
         if current_target is not None:
-            current_score = ema_money.get(
-                current_target, game.id_to_country[current_target].money
-            )
+            current_score = ema_money.get(current_target, id_to_money[current_target])
             if current_score <= smallest_score * (1.0 + self.TARGET_RETARGET_MARGIN):
                 smallest = current_target
                 smallest_score = current_score
 
         bot_state["target"] = smallest
 
-        # If the smallest neighbour is signifcantly smaller
-        density = game.id_to_country[smallest].money / game.id_to_country[smallest].size
+        density = id_to_money[smallest] / max(1, id_to_size[smallest])
         if (
-            game.id_to_country[smallest].money < agent.money * agent.aggro
-            and int(d[smallest] * density) + 1 <= agent.money
+            id_to_money[smallest] < id_to_money[agent_id] * agent_aggro
+            and int(d[smallest] * density) + 1 <= id_to_money[agent_id]
         ):
             return smallest, int(d[smallest] * density) + 1
 
-        # if attack threshold not met
-        if agent.money / agent.size / 1000 < agent.threshold:
+        if id_to_money[agent_id] / max(1, id_to_size[agent_id]) / 1000 < threshold:
             return None, None
 
         # If the difference between the to countries isn't too big, or growth has stopped
         if (
-            game.id_to_country[smallest].money / (agent.money * agent.aggro)
-            <= agent.tooBig
-            or agent.money >= agent.size * 1000
+            id_to_money[smallest] / (id_to_money[agent_id] * agent_aggro) <= tooBig
+            or id_to_money[agent_id] >= id_to_size[agent_id] * 1000
         ):
-            return smallest, int(agent.money * agent.aggro)
+            return smallest, int(id_to_money[agent_id] * agent_aggro)
 
         return None, None
 

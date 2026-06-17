@@ -1,3 +1,4 @@
+# CustomEnvironment update
 from collections import deque
 from copy import deepcopy
 
@@ -11,7 +12,6 @@ from game.gameFuncs import findNeighbours
 from strategy_config import POLICY_COLORS, GAME_MAX_TURNS
 
 
-# FIXME self-attacks occur smh. isn't it random sampling?
 class CustomEnvironment(ParallelEnv):
     metadata = {
         "name": "custom_environment_v0",
@@ -23,14 +23,20 @@ class CustomEnvironment(ParallelEnv):
     def unpermute_id(self, permuted_id: int, agent: int) -> int:
         return int(self.reverse_id_permutation[agent][permuted_id] - 1)
 
-    def __init__(self, rendering, n_players, grid_rows, grid_columns):
+    def __init__(
+        self,
+        rendering,
+        n_players,
+        grid_rows,
+        grid_columns,
+    ):
         super().__init__()
         self.n_players = n_players
         self.n_agents = n_players
         self.id_permutation: Dict[int, np.ndarray] = {}
         self.reverse_id_permutation: Dict[int, np.ndarray] = {}
         self.map_obs_deque: Dict[int, deque[np.ndarray]] = {}
-        self.policy_mapping = {}
+        self.policy_mapping = {i: "p0" for i in range(self.n_players)}
         self.grid_columns = grid_columns
         self.grid_rows = grid_rows
         self.max_steps = GAME_MAX_TURNS
@@ -48,6 +54,7 @@ class CustomEnvironment(ParallelEnv):
         self.truncations = {agent: False for agent in self.possible_agents}
 
         self.saved_stats: Dict[int, np.ndarray] = {}
+        self.saved_obs_metadata: Dict[int, dict] = {}
 
         self.n_board_channels = self.game.n_players + 1
         self.n_stats_channels = self.game.n_players * 2
@@ -61,29 +68,56 @@ class CustomEnvironment(ParallelEnv):
         stats_shape = (self.n_stats,)
 
         self.action_spaces = {
-            agent: spaces.MultiDiscrete([self.game.n_players + 1, self.n_commit_bins])
+            agent: (
+                spaces.Box(
+                    low=np.array([-2, 0]),
+                    high=np.array([self.game.n_players, np.inf]),
+                    dtype=np.int64,
+                )
+                if self.policy_mapping[agent].startswith("bot")
+                else spaces.MultiDiscrete([self.game.n_players + 1, self.n_commit_bins])
+            )
             for agent in self.possible_agents
         }
+
         self.observation_spaces = {
             agent: spaces.Dict(
                 {
                     "observations": spaces.Box(
-                        low=-1,
-                        high=1,
-                        shape=obs_shape,
-                        dtype=np.int8,
+                        low=-1, high=1, shape=obs_shape, dtype=np.int8
                     ),
                     "stats": spaces.Box(
-                        low=0,
-                        high=1,
-                        shape=stats_shape,
-                        dtype=np.float32,
+                        low=0, high=1, shape=stats_shape, dtype=np.float32
                     ),
                     "action_mask": spaces.Box(
                         low=0.0,
                         high=1.0,
                         shape=(self.game.n_players + 1 + self.n_commit_bins,),
                         dtype=np.float32,
+                    ),
+                    "board": spaces.Box(
+                        low=-1,
+                        high=self.game.n_players,
+                        shape=(self.game.n_grid_rows, self.game.n_grid_columns),
+                        dtype=np.int16,
+                    ),
+                    "id_to_money": spaces.Box(
+                        low=0.0,
+                        high=np.inf,
+                        shape=(self.game.n_players,),
+                        dtype=np.float32,
+                    ),
+                    "id_to_size": spaces.Box(
+                        low=0, high=np.inf, shape=(self.game.n_players,), dtype=np.int32
+                    ),
+                    "agent_aggro": spaces.Box(
+                        low=0.0, high=np.inf, shape=(1,), dtype=np.float32
+                    ),
+                    "tooBig": spaces.Box(
+                        low=0.0, high=np.inf, shape=(1,), dtype=np.float32
+                    ),
+                    "threshold": spaces.Box(
+                        low=0.0, high=np.inf, shape=(1,), dtype=np.float32
                     ),
                 }
             )
@@ -153,13 +187,17 @@ class CustomEnvironment(ParallelEnv):
         one_hot = np.eye(num_channels, dtype=np.int8)[permuted_board]
         stats = np.zeros(self.n_stats, dtype=np.float32)
 
-        # Fill the country statistics (excluding the last time-step slot)
+        id_to_money = np.zeros(self.game.n_players, dtype=np.float32)
+        id_to_size = np.zeros(self.game.n_players, dtype=np.int32)
+
         for perm_idx in range(1, self.game.n_players + 1):
             original_id = self.unpermute_id(perm_idx, agent)
             stat_idx = perm_idx - 1
 
             if original_id in self.game.id_to_country:
                 c = self.game.id_to_country[original_id]
+                id_to_money[original_id] = c.money
+                id_to_size[original_id] = c.size
                 stats[stat_idx] = (
                     c.money / 1500 / self.game.n_grid_rows / self.game.n_grid_columns
                 )
@@ -170,10 +208,22 @@ class CustomEnvironment(ParallelEnv):
         stats[-1] = float(self.current_step) / float(self.max_steps)
         stats = np.clip(stats, 0.0, 1.0)
 
+        c_agent = self.game.id_to_country.get(agent)
+
         return {
             "observations": one_hot.transpose(2, 0, 1),
             "stats": stats,
             "action_mask": self.get_action_mask(agent),
+            "board": board.astype(np.int16),
+            "id_to_money": id_to_money,
+            "id_to_size": id_to_size,
+            "agent_aggro": np.array(
+                [c_agent.aggro if c_agent else 0.0], dtype=np.float32
+            ),
+            "tooBig": np.array([c_agent.tooBig if c_agent else 0.0], dtype=np.float32),
+            "threshold": np.array(
+                [c_agent.threshold if c_agent else 0.0], dtype=np.float32
+            ),
         }
 
     def _get_deltas(self, agent=None):
@@ -183,18 +233,9 @@ class CustomEnvironment(ParallelEnv):
         return deltas
 
     def observe(self, agent=None):
-        policy_id = self.policy_mapping.get(agent, None)
-
-        if policy_id is not None and policy_id.startswith("bot"):
-            return self._observe_bot(agent)
-        else:
-            return self._observe_nn(agent)
-
-    def _observe_nn(self, agent=None):
         return {
             "observations": np.concatenate(self._get_deltas(agent)),
-            "stats": self.saved_stats[agent],
-            "action_mask": self.get_action_mask(agent),
+            **self.saved_obs_metadata[agent],
         }
 
     def reset(
@@ -226,8 +267,8 @@ class CustomEnvironment(ParallelEnv):
 
     def _update_frames(self, agent):
         obs = self._get_observation_frame(agent)
-        self.map_obs_deque[agent].append(obs["observations"])
-        self.saved_stats[agent] = obs["stats"]
+        self.map_obs_deque[agent].append(obs.pop("observations"))
+        self.saved_obs_metadata[agent] = obs
 
     def step(self, action: Dict[int, Any]):
         attacks = []
@@ -242,12 +283,21 @@ class CustomEnvironment(ParallelEnv):
         for agent in self.agents:
             if agent not in self.game.id_to_country:
                 continue
-            target = action[agent][0]
-            commited_bin = action[agent][1]
-            commited = (
-                self.game.id_to_country[agent].money * commited_bin / 10.0
-            )  # Convert 0..10 to 0.0..1.0
-            target = self.unpermute_id(target, agent)
+
+            raw_action = action[agent]
+
+            if self.policy_mapping[agent].startswith("bot"):
+                target = raw_action[0]
+                commited = raw_action[1]
+            else:
+                target = raw_action[0]
+                commited_bin = raw_action[1]
+                commited = self.game.id_to_country[agent].money * commited_bin / 10.0
+                target = self.unpermute_id(target + 1, agent)
+
+            if target == agent:
+                raise ValueError("Suicide is a sin, player", agent)
+
             attacks.append(
                 {"attacker": agent, "target": target, "commit": float(commited)}
             )
@@ -256,8 +306,6 @@ class CustomEnvironment(ParallelEnv):
         for _ in range(self.ticks_delta):
             self.game.tick()
 
-        # INCREMENT CURRENT_STEP BEFORE GENERATING OBSERVATIONS
-        # This ensures the new observations immediately reflect the updated progression
         self.current_step += 1
 
         for agent in self.agents:
@@ -284,7 +332,7 @@ class CustomEnvironment(ParallelEnv):
 
             if terminations[agent] or truncations[agent]:
                 if truncations[agent]:
-                    # The game timed out. Rank everyone currently alive by size.
+                    # The game timed out. Rank everyone currently alive by size
                     alive_agents = [
                         a for a in self.agents if a in self.game.id_to_country
                     ]

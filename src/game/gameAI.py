@@ -8,13 +8,13 @@ if TYPE_CHECKING:
 
 
 # target = id of country that the function is finding neighbours for
-def findNeighbours(game: "Game", target):
+def find_neighbours(board, player):
     """
     Returns a list of unique player IDs that share a border with the given player_id.
     """
-    grid = game.board
+    grid = board
     # 1. Mask of current player's territory
-    mask = grid == target
+    mask = grid == player
 
     # 2. Find all cells adjacent to the mask (UP, DOWN, LEFT, RIGHT)
     # We create a combined mask of all neighbors
@@ -31,6 +31,11 @@ def findNeighbours(game: "Game", target):
     neighbor_ids = grid[neighbor_pixels_mask]
     ids, counts = np.unique(neighbor_ids, return_counts=True)
     return dict(zip(ids, counts))
+
+
+# backward compatibility
+def findNeighbours(game: "Game", target):
+    return find_neighbours(game.board, target)
 
 
 # Isn't used in the training anymore, see BotPolicy
