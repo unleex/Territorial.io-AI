@@ -6,7 +6,7 @@ from ray.rllib.algorithms import Algorithm
 from ray.rllib.evaluation.episode_v2 import EpisodeV2
 from ray.rllib.utils.metrics.metrics_logger import MetricsLogger
 from players.bot import BotPolicy
-from arena import EloRating
+from elo_rating import EloRating
 from players.model import MODEL_NAME
 from strategy_config import N_PLAYERS, POLICY_COLORS
 from prepare_env import make_env
@@ -188,9 +188,9 @@ class LeaguePlayCallback(DefaultCallbacks):
         )
 
         def assign_mappings(env):
-            env.par_env.policy_mapping = {
-                agent_id: mapping_fn(agent_id, None) for agent_id in range(N_PLAYERS)
-            }
+            env.par_env.set_next_policy_mapping(
+                {agent_id: mapping_fn(agent_id, None) for agent_id in range(N_PLAYERS)}
+            )
 
         algorithm.env_runner_group.foreach_env_runner(
             lambda w: w.foreach_env(assign_mappings)
@@ -215,7 +215,7 @@ class LeaguePlayCallback(DefaultCallbacks):
             key="league_updates",
             value=self.current_opponent,
         )
-        custom_metrics = result.get("custom_metrics", {})
+        custom_metrics = result.get("env_runners", {}).get("custom_metrics", {})
         if not custom_metrics:
             warnings.warn("No metrics found!")
         for key, empirical_win_rate in custom_metrics.items():

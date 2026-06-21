@@ -1,4 +1,4 @@
-from strategy_config import N_PLAYERS
+from strategy_config import N_PLAYERS, GAMMA_DECAY
 from ray.rllib.algorithms.ppo import PPOConfig
 from prepare_env import ENV_NAME
 from players.model import MODEL_NAME
@@ -34,7 +34,7 @@ training_params = dict(
     train_batch_size=None,
     minibatch_size=None,
     lr=2e-5,
-    gamma=0.999,
+    gamma=GAMMA_DECAY,
     lambda_=0.9,
     use_gae=True,
     clip_param=0.2,
@@ -45,4 +45,4 @@ training_params = dict(
     model={"custom_model": MODEL_NAME},
 )
 config.simple_optimizer = False
-env_runners_params = dict(batch_mode="truncate_episodes")
+env_runners_params = dict(batch_mode="complete_episodes")

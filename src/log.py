@@ -11,9 +11,9 @@ from environment import CustomEnvironment
 from ray.rllib.callbacks.callbacks import RLlibCallback
 from ray.rllib.env.env_runner import EnvRunner
 from game.countryClass import country
+from strategy_config import RUN_NAME
 
 
-RUN_NAME = "scaled_reward"
 VIDEO_SAVE_FREQ = 5
 VIDEO_LOG_DIR = (
     Path("logs").absolute() / "custom_env" / RUN_NAME / "videos"

@@ -1,9 +1,12 @@
+from configs.strategies.common import GAMMA_DECAY
+
 N_PLAYERS = 8
 MAP_SIZE = (80, 80)
 N_TRAINABLES = 1
 LEAGUE_UPDATE_PLACE_PERCENTILE = 0.3
-BOT_EXPANSION_BOOST = 50
+BOT_EXPANSION_BOOST = 1
 GAME_MAX_TURNS = 1000
+RUN_NAME = "shaped_reward"
 POLICY_COLORS = {
     # Main Policy
     "p0": "#FFFFFF",

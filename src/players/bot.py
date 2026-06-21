@@ -1,4 +1,4 @@
-# BotPolicy update
+import warnings
 from ray.rllib.policy.policy import Policy
 from players.base_player import BasePlayer
 import random
@@ -14,15 +14,19 @@ class BotPolicy(Policy, BasePlayer):
     def compute_actions(
         self,
         obs_batch,
+        state_batches=None,
+        prev_action_batch=None,
+        prev_reward_batch=None,
         info_batch=None,
         episodes=None,
         **kwargs,
     ):
-        batch_size = len(obs_batch)
         actions = []
-        for i in range(batch_size):
+        # torch collate_fn doesn't concatenate independent dicts.
+        # it creates a dict with concatenated values for each key...
+        for i in range(len(obs_batch["agent_id"])):
             episode = episodes[i]
-            env_agent_id = info_batch[i]["agent_id"]
+            env_agent_id = obs_batch["agent_id"][i]
 
             if "bot_state" not in episode.user_data:
                 episode.user_data["bot_state"] = {}
@@ -30,17 +34,15 @@ class BotPolicy(Policy, BasePlayer):
                 env_agent_id,
                 {"target": None, "ema_money": {}},
             )
-            obs = obs_batch[i]
-
             target, commit = self.runai(
                 agent_id=env_agent_id,
                 bot_state=bot_state,
-                board=obs["board"],
-                id_to_money=obs["id_to_money"],
-                id_to_size=obs["id_to_size"],
-                agent_aggro=obs["agent_aggro"][0],
-                tooBig=obs["tooBig"][0],
-                threshold=obs["threshold"][0],
+                board=obs_batch["board"][i],
+                id_to_money=obs_batch["id_to_money"][i],
+                id_to_size=obs_batch["id_to_size"][i],
+                agent_aggro=obs_batch["agent_aggro"][i][0],
+                tooBig=obs_batch["tooBig"][i][0],
+                threshold=obs_batch["threshold"][i][0],
             )
 
             if target is None:
@@ -84,8 +86,6 @@ class BotPolicy(Policy, BasePlayer):
 
         ema_money: dict = bot_state["ema_money"]
         for i in d:
-            if i == -1:
-                continue
             money = id_to_money[i]
             prev = ema_money.get(i, money)
             ema_money[i] = (
@@ -100,8 +100,6 @@ class BotPolicy(Policy, BasePlayer):
         smallest = None
         smallest_score = None
         for i in d:
-            if i == -1:
-                continue
             score = ema_money.get(i, id_to_money[i])
             if smallest is None or score < smallest_score:
                 smallest = i

@@ -1,9 +1,12 @@
+from configs.strategies.common import GAMMA_DECAY
+
 N_PLAYERS = 32
 MAP_SIZE = (256, 256)
 N_TRAINABLES = 2
 LEAGUE_UPDATE_PLACE_PERCENTILE = 0.3
 BOT_EXPANSION_BOOST = 10
 GAME_MAX_TURNS = 2500
+RUN_NAME = "big_world"
 POLICY_COLORS = {
     # Main Policy
     "p0": "#FFFFFF",
