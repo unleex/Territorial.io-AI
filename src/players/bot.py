@@ -51,7 +51,15 @@ class BotPolicy(Policy, BasePlayer):
 
             actions.append(np.array([target, commit], dtype=np.int64))
 
-        return np.array(actions, dtype=np.int64), [], {}
+        return (
+            np.array(
+                list(
+                    map(lambda action: dict(zip(("target", "commit"), action)), actions)
+                ),
+            ),
+            [],
+            {},
+        )
 
     def runai(
         self,

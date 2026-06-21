@@ -75,10 +75,13 @@ class CustomEnvironment(ParallelEnv):
 
         self.action_spaces = {
             agent: (
-                spaces.Box(
-                    low=np.array([-2, 0]),
-                    high=np.array([self.game.n_players, np.inf]),
-                    dtype=np.int64,
+                spaces.Dict(
+                    {
+                        "target": spaces.Box(low=0, high=self.n_players),
+                        "commit": spaces.Box(
+                            low=0.0, high=np.inf, shape=(1,), dtype=np.int32
+                        ),
+                    }
                 )
                 if self.policy_mapping[agent].startswith("bot")
                 else spaces.Dict(
@@ -312,8 +315,8 @@ class CustomEnvironment(ParallelEnv):
             raw_action = action[agent]
 
             if self.policy_mapping[agent].startswith("bot"):
-                target = raw_action[0]
-                commited = raw_action[1]
+                target = raw_action["target"]
+                commited = raw_action["commit"][0]
             else:
                 target = raw_action["target"]
                 commit_strength = raw_action["commit"][0]
