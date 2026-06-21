@@ -2,9 +2,9 @@ from configs.common import config, training_params, env_runners_params
 
 training_params["train_batch_size"] = 4096
 training_params["minibatch_size"] = 1024
-training_params["model"] = {
-    "max_seq_len": 32,
-}
+# training_params["model"] = {
+#     "max_seq_len": 32,
+# }
 CONFIG_NAME = "H200"
 config = (
     config.training(**training_params)

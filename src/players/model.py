@@ -1,14 +1,16 @@
 import torch
 import torch.nn as nn
-import numpy as np
-
+from players.base_player import BasePlayer
 from ray.rllib.models import ModelCatalog
 from ray.rllib.models.torch.recurrent_net import RecurrentNetwork
+
+from ray.rllib.models.modelv2 import restore_original_dimensions
+from ray.rllib.models.torch.torch_modelv2 import TorchModelV2
 
 LSTM_HIDDEN_SIZE = 128
 
 
-class MultiDiscreteActionMaskModel(RecurrentNetwork, nn.Module):
+class LSTMModel(RecurrentNetwork, nn.Module):
     def __init__(self, obs_space, action_space, num_outputs, model_config, name):
         RecurrentNetwork.__init__(
             self, obs_space, action_space, num_outputs, model_config, name
@@ -16,6 +18,7 @@ class MultiDiscreteActionMaskModel(RecurrentNetwork, nn.Module):
         nn.Module.__init__(self)
 
         original_space = getattr(obs_space, "original_space", obs_space)
+        self.target_dim = int(original_space["action_mask"].shape[0])
 
         self.obs_shape = original_space["observations"].shape
         self.stat_size = int(original_space["stats"].shape[0])
@@ -115,5 +118,91 @@ class MultiDiscreteActionMaskModel(RecurrentNetwork, nn.Module):
         return self._value_out
 
 
-MODEL_NAME = "multi_discrete_action_mask_model"
-ModelCatalog.register_custom_model(MODEL_NAME, MultiDiscreteActionMaskModel)
+class ActionMaskModel(TorchModelV2, nn.Module, BasePlayer):
+    """TorchModelV2 for Dict(obs, action_mask) + MultiDiscrete actions."""
+
+    def __init__(self, obs_space, action_space, num_outputs, model_config, name):
+        TorchModelV2.__init__(
+            self, obs_space, action_space, num_outputs, model_config, name
+        )
+        nn.Module.__init__(self)
+
+        original_space = getattr(obs_space, "original_space", obs_space)
+        self.target_dim = int(original_space["action_mask"].shape[0])
+        if (
+            hasattr(original_space, "spaces")
+            and "observations" in original_space.spaces
+        ):
+            self._obs_shape = original_space["observations"].shape
+        else:
+            self._obs_shape = obs_space.shape
+
+        in_channels = int(self._obs_shape[0])
+
+        self.encoder = nn.Sequential(
+            # no dilation since first layers must detect borders
+            nn.Conv2d(in_channels, 64, kernel_size=3, stride=2, padding=1),
+            nn.ReLU(),
+            nn.MaxPool2d(kernel_size=2, stride=2),
+            nn.Conv2d(64, 128, kernel_size=3, stride=2, padding=1),
+            nn.ReLU(),
+            nn.MaxPool2d(kernel_size=2, stride=2),
+            # dilation to look at broader territory
+            nn.Conv2d(128, 256, kernel_size=3, stride=1, padding=1, dilation=2),
+            nn.ReLU(),
+            nn.Conv2d(256, 256, kernel_size=3, stride=1, padding=1),
+            nn.ReLU(),
+            nn.Flatten(),
+        )
+        with torch.no_grad():
+            dummy = torch.zeros(1, *self._obs_shape, dtype=torch.float32)
+            flat_size = self.encoder(dummy).shape[1]
+            # print("Input size for the trunk:", flat_size)
+        stat_size = int(original_space["stats"].shape[0])
+
+        self.trunk = nn.Sequential(
+            nn.Linear(flat_size + stat_size, 1024),
+            nn.ReLU(),
+            nn.Linear(1024, 512),
+            nn.ReLU(),
+            nn.Linear(512, 512),
+            nn.ReLU(),
+            nn.Linear(512, 256),
+            nn.ReLU(),
+        )
+        self.policy_head = nn.Linear(256, self.target_dim + 2)
+        self.value_head = nn.Linear(256, 1)
+        self._value_out = None
+
+    def forward(self, input_dict, state, seq_lens):
+        restored = restore_original_dimensions(
+            input_dict["obs"], self.obs_space, "torch"
+        )
+        obs = restored["observations"].float()
+        action_mask = restored["action_mask"].float()
+        stats = restored["stats"].float()
+
+        obs_trunked = self.encoder(obs)
+
+        combined_features = torch.cat([obs_trunked, stats], dim=1)
+
+        features = self.trunk(combined_features)
+        logits = self.policy_head(features)
+        target_logits = logits[..., : self.target_dim]
+        commit_mu = logits[..., self.target_dim]
+        commit_log_std = torch.clamp(logits[..., self.target_dim + 1], -5, 2)
+        commit_params = torch.stack([commit_mu, commit_log_std], dim=-1)
+
+        inf_mask = torch.clamp(torch.log(action_mask), min=-1e20)
+        masked_target_logits = target_logits + inf_mask
+
+        masked_logits = torch.cat([commit_params, masked_target_logits], dim=-1)
+        self._value_out = self.value_head(features).squeeze(-1)
+        return masked_logits, state
+
+    def value_function(self):
+        return self._value_out
+
+
+MODEL_NAME = "action_mask_model"
+ModelCatalog.register_custom_model(MODEL_NAME, ActionMaskModel)

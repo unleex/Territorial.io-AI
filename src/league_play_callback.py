@@ -189,7 +189,8 @@ class LeaguePlayCallback(DefaultCallbacks):
 
         def assign_mappings(env):
             env.par_env.set_next_policy_mapping(
-                {agent_id: mapping_fn(agent_id, None) for agent_id in range(N_PLAYERS)}
+                {agent_id: mapping_fn(agent_id, None) for agent_id in range(N_PLAYERS)},
+                force=initial,
             )
 
         algorithm.env_runner_group.foreach_env_runner(

@@ -1,3 +1,4 @@
+import logging
 import warnings
 from collections import deque
 from copy import deepcopy
@@ -9,7 +10,12 @@ from pettingzoo import ParallelEnv
 from game.game import Game
 from gymnasium import spaces
 from game.gameFuncs import findNeighbours
-from strategy_config import POLICY_COLORS, GAME_MAX_TURNS, GAMMA_DECAY
+from strategy_config import (
+    POLICY_COLORS,
+    GAME_MAX_TURNS,
+    GAMMA_DECAY,
+    TERMINAL_REWARD_COEFF,
+)
 
 
 class CustomEnvironment(ParallelEnv):
@@ -45,8 +51,7 @@ class CustomEnvironment(ParallelEnv):
         self.ticks_delta = 1
         self.render_mode = None
         self.rendering = rendering
-        self.obs_stack_size = 1
-        self.n_commit_bins = 11
+        self.obs_stack_size = 4
         self.agents = []
         self.country_colors = list(POLICY_COLORS.values())[: self.n_players]
         self._prepare()
@@ -76,7 +81,14 @@ class CustomEnvironment(ParallelEnv):
                     dtype=np.int64,
                 )
                 if self.policy_mapping[agent].startswith("bot")
-                else spaces.MultiDiscrete([self.game.n_players + 1, self.n_commit_bins])
+                else spaces.Dict(
+                    {
+                        "target": spaces.Discrete(self.game.n_players + 1),
+                        "commit": spaces.Box(
+                            low=0.0, high=1.0, shape=(1,), dtype=np.float32
+                        ),
+                    }
+                )
             )
             for agent in self.possible_agents
         }
@@ -93,7 +105,7 @@ class CustomEnvironment(ParallelEnv):
                     "action_mask": spaces.Box(
                         low=0.0,
                         high=1.0,
-                        shape=(self.game.n_players + 1 + self.n_commit_bins,),
+                        shape=(self.game.n_players + 1,),
                         dtype=np.float32,
                     ),
                     "board": spaces.Box(
@@ -132,8 +144,11 @@ class CustomEnvironment(ParallelEnv):
         assert len(new_colors) == self.n_players
         self.country_colors = new_colors
 
-    def set_next_policy_mapping(self, mapping):
-        self.next_policy_mapping = mapping
+    def set_next_policy_mapping(self, mapping, force=False):
+        if force:
+            self.policy_mapping = mapping
+        else:
+            self.next_policy_mapping = mapping
 
     def _build_permutations(self, agent):
         id_perm = np.zeros(self.game.n_players + 1, dtype=int)
@@ -273,8 +288,7 @@ class CustomEnvironment(ParallelEnv):
             neighbors = findNeighbours(self.game, agent)
             for neigh in neighbors:
                 target_mask[self.permute_id(neigh, agent)] = 1.0
-        commit_mask = np.ones(self.n_commit_bins, dtype=np.float32)
-        return np.concatenate([target_mask, commit_mask])
+        return target_mask
 
     def _update_frames(self, agent: int):
         obs = self._get_observation_frame(agent)
@@ -301,9 +315,9 @@ class CustomEnvironment(ParallelEnv):
                 target = raw_action[0]
                 commited = raw_action[1]
             else:
-                target = raw_action[0]
-                commited_bin = raw_action[1]
-                commited = self.game.id_to_country[agent].money * commited_bin / 10.0
+                target = raw_action["target"]
+                commit_strength = raw_action["commit"][0]
+                commited = self.game.id_to_country[agent].money * commit_strength
                 target = self.unpermute_id(target, agent)
 
             if target == agent:
@@ -333,9 +347,10 @@ class CustomEnvironment(ParallelEnv):
             won = is_alive and len(self.game.id_to_country) == 1
 
             new_size = self.game.id_to_country[agent].size if is_alive else 0
-            rewards[agent] = (GAMMA_DECAY * new_size - old_player_size[agent]) / (
-                self.game.n_grid_rows * self.game.n_grid_columns
-            )
+            rewards[agent] = 0
+            # rewards[agent] = (GAMMA_DECAY * new_size - old_player_size[agent]) / (
+            #     self.game.n_grid_rows * self.game.n_grid_columns
+            # )
             terminations[agent] = not is_alive or won
             truncations[agent] = is_timeout
             infos[agent] = {}
@@ -360,8 +375,9 @@ class CustomEnvironment(ParallelEnv):
                         ** self.reward_convexity
                     )
                     - 1
-                )
+                ) * TERMINAL_REWARD_COEFF
                 infos[agent]["place"] = place
+
         for agent in self.agents:
             infos[agent]["attacks"] = attacks.copy()
 
