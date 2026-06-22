@@ -5,6 +5,7 @@ import random
 from game.gameAI import find_neighbours
 import numpy as np
 from strategy_config import BOT_EXPANSION_BOOST
+from utility import permute_id
 
 
 class BotPolicy(Policy, BasePlayer):
@@ -21,7 +22,8 @@ class BotPolicy(Policy, BasePlayer):
         episodes=None,
         **kwargs,
     ):
-        actions = []
+        targets = []
+        commits = []
         # torch collate_fn doesn't concatenate independent dicts.
         # it creates a dict with concatenated values for each key...
         for i in range(len(obs_batch["agent_id"])):
@@ -46,17 +48,24 @@ class BotPolicy(Policy, BasePlayer):
             )
 
             if target is None:
-                actions.append(np.array([0, 0], dtype=np.int64))
+                targets.append(0)
+                commits.append(0)
                 continue
+            commit = 0
+            warnings.warn(f"bot: {env_agent_id} {commit} to {target}")
 
-            actions.append(np.array([target, commit], dtype=np.int64))
+            commit_strength = np.float32(
+                commit / max(1, obs_batch["id_to_money"][i][env_agent_id]),
+            )
+            permuted_target = permute_id(
+                obs_batch["id_permutation"][i],
+                target,
+            )
+            targets.append(permuted_target)
+            commits.append(commit_strength)
 
         return (
-            np.array(
-                list(
-                    map(lambda action: dict(zip(("target", "commit"), action)), actions)
-                ),
-            ),
+            {"target": np.array(targets), "commit": np.array(commits)},
             [],
             {},
         )

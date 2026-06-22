@@ -183,18 +183,8 @@ class LeaguePlayCallback(DefaultCallbacks):
             colors_list.append(POLICY_COLORS[pid])
         algorithm.env_runner_group.foreach_env_runner(
             lambda w: w.foreach_env(
-                lambda env: env.par_env.update_game_colors(colors_list)
+                lambda env: env.par_env.set_next_game_colors(colors_list)
             ),
-        )
-
-        def assign_mappings(env):
-            env.par_env.set_next_policy_mapping(
-                {agent_id: mapping_fn(agent_id, None) for agent_id in range(N_PLAYERS)},
-                force=initial,
-            )
-
-        algorithm.env_runner_group.foreach_env_runner(
-            lambda w: w.foreach_env(assign_mappings)
         )
 
     def on_algorithm_init(

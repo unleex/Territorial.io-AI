@@ -4,6 +4,7 @@ from collections import deque
 from copy import deepcopy
 
 from render import GameRenderer
+from utility import permute_id
 import numpy as np
 from typing import Dict, Any, Optional
 from pettingzoo import ParallelEnv
@@ -24,7 +25,7 @@ class CustomEnvironment(ParallelEnv):
     }
 
     def permute_id(self, original_id: int, agent: int) -> int:
-        return int(self.id_permutation[agent][original_id + 1])
+        return permute_id(self.id_permutation[agent], original_id)
 
     def unpermute_id(self, permuted_id: int, agent: int) -> int:
         return int(self.reverse_id_permutation[agent][permuted_id] - 1)
@@ -43,7 +44,6 @@ class CustomEnvironment(ParallelEnv):
         self.reverse_id_permutation: Dict[int, np.ndarray] = {}
         self.map_obs_deque: Dict[int, deque[np.ndarray]] = {}
         self.policy_mapping = {i: "p0" for i in range(self.n_players)}
-        self.next_policy_mapping = None
         self.grid_columns = grid_columns
         self.grid_rows = grid_rows
         self.max_steps = GAME_MAX_TURNS
@@ -53,6 +53,7 @@ class CustomEnvironment(ParallelEnv):
         self.rendering = rendering
         self.obs_stack_size = 4
         self.agents = []
+        self.next_country_colors = None
         self.country_colors = list(POLICY_COLORS.values())[: self.n_players]
         self._prepare()
 
@@ -74,28 +75,16 @@ class CustomEnvironment(ParallelEnv):
         stats_shape = (self.n_stats,)
 
         self.action_spaces = {
-            agent: (
-                spaces.Dict(
-                    {
-                        "target": spaces.Box(low=0, high=self.n_players),
-                        "commit": spaces.Box(
-                            low=0.0, high=np.inf, shape=(1,), dtype=np.int32
-                        ),
-                    }
-                )
-                if self.policy_mapping[agent].startswith("bot")
-                else spaces.Dict(
-                    {
-                        "target": spaces.Discrete(self.game.n_players + 1),
-                        "commit": spaces.Box(
-                            low=0.0, high=1.0, shape=(1,), dtype=np.float32
-                        ),
-                    }
-                )
+            agent: spaces.Dict(
+                {
+                    "target": spaces.Discrete(self.game.n_players + 1),
+                    "commit": spaces.Box(
+                        low=0.0, high=1.0, shape=(1,), dtype=np.float32
+                    ),
+                }
             )
             for agent in self.possible_agents
         }
-
         self.observation_spaces = {
             agent: spaces.Dict(
                 {
@@ -127,7 +116,7 @@ class CustomEnvironment(ParallelEnv):
                         low=0, high=np.inf, shape=(self.game.n_players,), dtype=np.int32
                     ),
                     "agent_id": spaces.Box(
-                        low=0, high=self.n_players - 1, dtype=np.int8
+                        low=0, high=self.game.n_players - 1, dtype=np.int8
                     ),
                     "agent_aggro": spaces.Box(
                         low=0.0, high=np.inf, shape=(1,), dtype=np.float32
@@ -138,20 +127,16 @@ class CustomEnvironment(ParallelEnv):
                     "threshold": spaces.Box(
                         low=0.0, high=np.inf, shape=(1,), dtype=np.float32
                     ),
+                    "id_permutation": spaces.Box(
+                        low=0.0,
+                        high=self.game.n_players,
+                        shape=(self.game.n_players + 1,),
+                        dtype=np.int8,
+                    ),
                 }
             )
             for agent in self.possible_agents
         }
-
-    def update_game_colors(self, new_colors: list[str]):
-        assert len(new_colors) == self.n_players
-        self.country_colors = new_colors
-
-    def set_next_policy_mapping(self, mapping, force=False):
-        if force:
-            self.policy_mapping = mapping
-        else:
-            self.next_policy_mapping = mapping
 
     def _build_permutations(self, agent):
         id_perm = np.zeros(self.game.n_players + 1, dtype=int)
@@ -229,8 +214,8 @@ class CustomEnvironment(ParallelEnv):
                 stats[self.game.n_players + stat_idx] = (
                     c.size / self.game.n_grid_rows / self.game.n_grid_columns
                 )
-        # avoid roundoff errors that cause negatives
         stats[-1] = float(self.current_step) / float(self.max_steps)
+        # avoid roundoff errors that cause negatives
         stats = np.clip(stats, 0.0, 1.0)
 
         c_agent = self.game.id_to_country.get(agent)
@@ -250,6 +235,7 @@ class CustomEnvironment(ParallelEnv):
             "threshold": np.array(
                 [c_agent.threshold if c_agent else 0.0], dtype=np.float32
             ),
+            "id_permutation": self.id_permutation[agent],
         }
 
     def _get_deltas(self, agent=None):
@@ -264,12 +250,16 @@ class CustomEnvironment(ParallelEnv):
             **self.saved_obs_metadata[agent],
         }
 
+    def set_next_game_colors(self, colors):
+        assert len(colors) == self.game.n_players
+        self.next_country_colors = colors
+
     def reset(
         self, seed: Optional[int] = None, options: Optional[Dict[str, Any]] = None
     ):
-        if self.next_policy_mapping is not None:
-            self.policy_mapping = self.next_policy_mapping
-            self.next_policy_mapping = None
+        if self.next_country_colors is not None:
+            self.country_colors = self.next_country_colors
+            self.next_country_colors = None
         self.current_step = 0
         self._prepare()
         self.agents = self.possible_agents[:]
@@ -306,22 +296,27 @@ class CustomEnvironment(ParallelEnv):
                 if agent in self.game.id_to_country
                 else 0
             )
-            for agent in self.possible_agents
+            for agent in self.agents
         }
+        old_player_money = {
+            agent: (
+                self.game.id_to_country[agent].money
+                if agent in self.game.id_to_country
+                else 0
+            )
+            for agent in self.agents
+        }
+
         for agent in self.agents:
             if agent not in self.game.id_to_country:
                 continue
 
             raw_action = action[agent]
-
-            if self.policy_mapping[agent].startswith("bot"):
-                target = raw_action["target"]
-                commited = raw_action["commit"][0]
-            else:
-                target = raw_action["target"]
-                commit_strength = raw_action["commit"][0]
-                commited = self.game.id_to_country[agent].money * commit_strength
-                target = self.unpermute_id(target, agent)
+            target = int(raw_action["target"])
+            commit_strength = float(raw_action["commit"][0])
+            commited = int(self.game.id_to_country[agent].money * commit_strength)
+            target = self.unpermute_id(target, agent)
+            warnings.warn(f"env: {agent} {commited} to {target}")
 
             if target == agent:
                 warnings.warn(f"Suicide is a sin, player {agent}")
@@ -349,11 +344,15 @@ class CustomEnvironment(ParallelEnv):
             )
             won = is_alive and len(self.game.id_to_country) == 1
 
+            old_state = old_player_size[agent] + old_player_money[agent] / 1500
+
             new_size = self.game.id_to_country[agent].size if is_alive else 0
-            rewards[agent] = 0
-            # rewards[agent] = (GAMMA_DECAY * new_size - old_player_size[agent]) / (
-            #     self.game.n_grid_rows * self.game.n_grid_columns
-            # )
+            new_money = self.game.id_to_country[agent].money if is_alive else 0
+            new_state = new_size + new_money / 1500
+
+            old_state /= self.game.n_grid_rows * self.game.n_grid_columns
+            new_state /= self.game.n_grid_rows * self.game.n_grid_columns
+            rewards[agent] = GAMMA_DECAY * new_state - old_state
             terminations[agent] = not is_alive or won
             truncations[agent] = is_timeout
             infos[agent] = {}
