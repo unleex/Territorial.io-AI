@@ -171,7 +171,7 @@ class LeaguePlayCallback(DefaultCallbacks):
 
         def mapping_fn(agent_id, episode, **kwargs):
             if agent_id in range(self.n_trainable_players):
-                return "p0"
+                return "bot0"
             return chosen[agent_id - self.n_trainable_players]
 
         algorithm.env_runner_group.foreach_env_runner(

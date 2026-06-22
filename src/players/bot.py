@@ -49,9 +49,8 @@ class BotPolicy(Policy, BasePlayer):
 
             if target is None:
                 targets.append(0)
-                commits.append(0)
+                commits.append(np.array([0], dtype=np.float32))
                 continue
-            commit = 0
             warnings.warn(f"bot: {env_agent_id} {commit} to {target}")
 
             commit_strength = np.float32(
@@ -61,11 +60,15 @@ class BotPolicy(Policy, BasePlayer):
                 obs_batch["id_permutation"][i],
                 target,
             )
-            targets.append(permuted_target)
-            commits.append(commit_strength)
+            targets.append(int(permuted_target))
+            commits.append(np.array([commit_strength], dtype=np.float32))
 
         return (
-            {"target": np.array(targets), "commit": np.array(commits)},
+            {
+                "target": np.array(targets, dtype=np.int64),
+                # because rllib normalizes actions via (x + 1)/ 2    :)
+                "commit": np.array(commits, dtype=np.float32) * 2 - 1,
+            },
             [],
             {},
         )
