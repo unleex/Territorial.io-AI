@@ -119,60 +119,22 @@ class LSTMModel(RecurrentNetwork, nn.Module):
 
 
 class ActionMaskModel(TorchModelV2, nn.Module, BasePlayer):
-    """TorchModelV2 for Dict(obs, action_mask) + MultiDiscrete actions."""
-
     def __init__(self, obs_space, action_space, num_outputs, model_config, name):
         TorchModelV2.__init__(
             self, obs_space, action_space, num_outputs, model_config, name
         )
         nn.Module.__init__(self)
 
-        original_space = getattr(obs_space, "original_space", obs_space)
-        self.target_dim = int(original_space["action_mask"].shape[0])
-        if (
-            hasattr(original_space, "spaces")
-            and "observations" in original_space.spaces
-        ):
-            self._obs_shape = original_space["observations"].shape
-        else:
-            self._obs_shape = obs_space.shape
+        # ... [Your existing encoder and trunk initialization] ...
 
-        in_channels = int(self._obs_shape[0])
-
-        self.encoder = nn.Sequential(
-            # no dilation since first layers must detect borders
-            nn.Conv2d(in_channels, 64, kernel_size=3, stride=2, padding=1),
-            nn.ReLU(),
-            nn.MaxPool2d(kernel_size=2, stride=2),
-            nn.Conv2d(64, 128, kernel_size=3, stride=2, padding=1),
-            nn.ReLU(),
-            nn.MaxPool2d(kernel_size=2, stride=2),
-            # dilation to look at broader territory
-            nn.Conv2d(128, 256, kernel_size=3, stride=1, padding=1, dilation=2),
-            nn.ReLU(),
-            nn.Conv2d(256, 256, kernel_size=3, stride=1, padding=1),
-            nn.ReLU(),
-            nn.Flatten(),
-        )
-        with torch.no_grad():
-            dummy = torch.zeros(1, *self._obs_shape, dtype=torch.float32)
-            flat_size = self.encoder(dummy).shape[1]
-            # print("Input size for the trunk:", flat_size)
-        stat_size = int(original_space["stats"].shape[0])
-
-        self.trunk = nn.Sequential(
-            nn.Linear(flat_size + stat_size, 1024),
-            nn.ReLU(),
-            nn.Linear(1024, 512),
-            nn.ReLU(),
-            nn.Linear(512, 512),
-            nn.ReLU(),
-            nn.Linear(512, 256),
-            nn.ReLU(),
-        )
-        self.policy_head = nn.Linear(256, self.target_dim + 2)
+        # Policy head now only outputs target_dim + 1 (just the discrete logits and 1 continuous mean)
+        self.policy_head = nn.Linear(256, self.target_dim + 1)
         self.value_head = nn.Linear(256, 1)
         self._value_out = None
+
+        # State-independent trainable parameter for continuous exploration variance
+        # Initialized to 0.0 (std = 1.0). If you want less initial exploration, set to -0.5
+        self.log_std = nn.Parameter(torch.zeros(1))
 
     def forward(self, input_dict, state, seq_lens):
         restored = restore_original_dimensions(
@@ -183,20 +145,31 @@ class ActionMaskModel(TorchModelV2, nn.Module, BasePlayer):
         stats = restored["stats"].float()
 
         obs_trunked = self.encoder(obs)
-
         combined_features = torch.cat([obs_trunked, stats], dim=1)
-
         features = self.trunk(combined_features)
+
         logits = self.policy_head(features)
+
+        # Extract components
         target_logits = logits[..., : self.target_dim]
-        commit_mu = logits[..., self.target_dim]
-        commit_log_std = torch.clamp(logits[..., self.target_dim + 1], -5, 2)
+
+        # 1. Squash the mean to [0.0, 1.0] using Sigmoid to perfectly match your Box boundaries
+        commit_mu = torch.sigmoid(logits[..., self.target_dim])
+
+        # 2. Broadcast the standalone log_std parameter to match the current batch size
+        batch_size = logits.shape[0]
+        commit_log_std = self.log_std.expand(batch_size)
+
+        # Pack continuous parameters together [batch, 2]
         commit_params = torch.stack([commit_mu, commit_log_std], dim=-1)
 
+        # Apply action masking to target selection
         inf_mask = torch.clamp(torch.log(action_mask), min=-1e20)
         masked_target_logits = target_logits + inf_mask
 
+        # Maintain the precise flattening order expected by RLlib
         masked_logits = torch.cat([commit_params, masked_target_logits], dim=-1)
+
         self._value_out = self.value_head(features).squeeze(-1)
         return masked_logits, state
 
