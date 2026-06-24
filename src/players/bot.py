@@ -4,7 +4,7 @@ from players.base_player import BasePlayer
 import random
 from game.gameAI import find_neighbours
 import numpy as np
-from strategy_config import BOT_EXPANSION_BOOST
+from strategy_config import BOT_EXPANSION_BOOST, N_COMMIT_BINS
 from utility import permute_id
 
 
@@ -22,10 +22,8 @@ class BotPolicy(Policy, BasePlayer):
         episodes=None,
         **kwargs,
     ):
-        targets = []
-        commits = []
-        # torch collate_fn doesn't concatenate independent dicts.
-        # it creates a dict with concatenated values for each key...
+        actions = []
+
         for i in range(len(obs_batch["agent_id"])):
             episode = episodes[i]
             env_agent_id = obs_batch["agent_id"][i]
@@ -36,6 +34,7 @@ class BotPolicy(Policy, BasePlayer):
                 env_agent_id,
                 {"target": None, "ema_money": {}},
             )
+
             target, commit = self.runai(
                 agent_id=env_agent_id,
                 bot_state=bot_state,
@@ -48,30 +47,21 @@ class BotPolicy(Policy, BasePlayer):
             )
 
             if target is None:
-                targets.append(0)
-                commits.append(np.array([0], dtype=np.float32))
+                actions.append(np.array([0, 0], dtype=np.int64))
                 continue
-            warnings.warn(f"bot: {env_agent_id} {commit} to {target}")
 
-            commit_strength = np.float32(
-                commit / max(1, obs_batch["id_to_money"][i][env_agent_id]),
-            )
             permuted_target = permute_id(
                 obs_batch["id_permutation"][i],
                 target,
             )
-            targets.append(int(permuted_target))
-            commits.append(np.array([commit_strength], dtype=np.float32))
 
-        return (
-            {
-                "target": np.array(targets, dtype=np.int64),
-                # because rllib normalizes actions via (x + 1)/ 2    :)
-                "commit": np.array(commits, dtype=np.float32) * 2 - 1,
-            },
-            [],
-            {},
-        )
+            money = max(1.0, float(obs_batch["id_to_money"][i][env_agent_id]))
+            commit_frac = np.clip(float(commit) / money, 0.0, 1.0)
+            commit_bin = np.ceil(commit_frac * (N_COMMIT_BINS - 1))
+
+            actions.append(np.array([int(permuted_target), commit_bin], dtype=np.int64))
+
+        return np.asarray(actions, dtype=np.int64), [], {}
 
     def runai(
         self,

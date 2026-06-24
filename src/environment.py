@@ -1,4 +1,3 @@
-import logging
 import warnings
 from collections import deque
 from copy import deepcopy
@@ -16,6 +15,7 @@ from strategy_config import (
     GAME_MAX_TURNS,
     GAMMA_DECAY,
     TERMINAL_REWARD_COEFF,
+    N_COMMIT_BINS,
 )
 
 
@@ -52,6 +52,7 @@ class CustomEnvironment(ParallelEnv):
         self.render_mode = None
         self.rendering = rendering
         self.obs_stack_size = 4
+        self.n_commit_bins = N_COMMIT_BINS
         self.agents = []
         self.next_country_colors = None
         self.country_colors = list(POLICY_COLORS.values())[: self.n_players]
@@ -75,16 +76,10 @@ class CustomEnvironment(ParallelEnv):
         stats_shape = (self.n_stats,)
 
         self.action_spaces = {
-            agent: spaces.Dict(
-                {
-                    "target": spaces.Discrete(self.game.n_players + 1),
-                    "commit": spaces.Box(
-                        low=0.0, high=1.0, shape=(1,), dtype=np.float32
-                    ),
-                }
-            )
+            agent: spaces.MultiDiscrete([self.game.n_players + 1, self.n_commit_bins])
             for agent in self.possible_agents
         }
+
         self.observation_spaces = {
             agent: spaces.Dict(
                 {
@@ -97,7 +92,7 @@ class CustomEnvironment(ParallelEnv):
                     "action_mask": spaces.Box(
                         low=0.0,
                         high=1.0,
-                        shape=(self.game.n_players + 1,),
+                        shape=(self.game.n_players + 1 + self.n_commit_bins,),
                         dtype=np.float32,
                     ),
                     "board": spaces.Box(
@@ -281,7 +276,8 @@ class CustomEnvironment(ParallelEnv):
             neighbors = findNeighbours(self.game, agent)
             for neigh in neighbors:
                 target_mask[self.permute_id(neigh, agent)] = 1.0
-        return target_mask
+        commit_mask = np.ones(self.n_commit_bins, dtype=np.float32)
+        return np.concatenate([target_mask, commit_mask])
 
     def _update_frames(self, agent: int):
         obs = self._get_observation_frame(agent)
@@ -296,35 +292,29 @@ class CustomEnvironment(ParallelEnv):
                 if agent in self.game.id_to_country
                 else 0
             )
-            for agent in self.agents
+            for agent in self.possible_agents
         }
-        old_player_money = {
-            agent: (
-                self.game.id_to_country[agent].money
-                if agent in self.game.id_to_country
-                else 0
-            )
-            for agent in self.agents
-        }
-
         for agent in self.agents:
             if agent not in self.game.id_to_country:
                 continue
 
             raw_action = action[agent]
-            target = int(raw_action["target"])
-            commit_strength = float(raw_action["commit"][0])
-            commited = int(self.game.id_to_country[agent].money * commit_strength)
+            target = raw_action[0]
+            committed_bin = raw_action[1]
+            committed = (
+                self.game.id_to_country[agent].money
+                * committed_bin
+                / (N_COMMIT_BINS - 1)
+            )
             target = self.unpermute_id(target, agent)
-            warnings.warn(f"env: {agent} {commit_strength} to {target}")
 
             if target == agent:
                 warnings.warn(f"Suicide is a sin, player {agent}")
-
+            # warnings.warn(f"{agent} attacks {target} with {committed}")
             attacks.append(
-                {"attacker": agent, "target": target, "commit": float(commited)}
+                {"attacker": agent, "target": target, "commit": float(committed)}
             )
-            self.game.id_to_country[agent].attackInit(self.game, target, commited)
+            self.game.id_to_country[agent].attackInit(self.game, target, committed)
 
         for _ in range(self.ticks_delta):
             self.game.tick()
@@ -344,15 +334,10 @@ class CustomEnvironment(ParallelEnv):
             )
             won = is_alive and len(self.game.id_to_country) == 1
 
-            old_state = old_player_size[agent] + old_player_money[agent] / 1500
-
             new_size = self.game.id_to_country[agent].size if is_alive else 0
-            new_money = self.game.id_to_country[agent].money if is_alive else 0
-            new_state = new_size + new_money / 1500
-
-            old_state /= self.game.n_grid_rows * self.game.n_grid_columns
-            new_state /= self.game.n_grid_rows * self.game.n_grid_columns
-            rewards[agent] = GAMMA_DECAY * new_state - old_state
+            rewards[agent] = (GAMMA_DECAY * new_size - old_player_size[agent]) / (
+                self.game.n_grid_rows * self.game.n_grid_columns
+            )
             terminations[agent] = not is_alive or won
             truncations[agent] = is_timeout
             infos[agent] = {}

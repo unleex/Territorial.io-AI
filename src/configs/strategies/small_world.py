@@ -1,4 +1,4 @@
-from configs.strategies.common import GAMMA_DECAY
+from configs.strategies.common import *
 
 N_PLAYERS = 8
 MAP_SIZE = (80, 80)
@@ -6,7 +6,7 @@ N_TRAINABLES = 1
 LEAGUE_UPDATE_PLACE_PERCENTILE = 0.3
 BOT_EXPANSION_BOOST = 1
 GAME_MAX_TURNS = 1000
-RUN_NAME = "scalar_commit"
+RUN_NAME = "idk_already"
 TERMINAL_REWARD_COEFF = 1
 POLICY_COLORS = {
     # Main Policy
