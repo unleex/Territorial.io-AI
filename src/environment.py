@@ -316,7 +316,6 @@ class CustomEnvironment(ParallelEnv):
             commit_strength = float(raw_action["commit"][0])
             commited = int(self.game.id_to_country[agent].money * commit_strength)
             target = self.unpermute_id(target, agent)
-            warnings.warn(f"env: {agent} {commit_strength} to {target}")
 
             if target == agent:
                 warnings.warn(f"Suicide is a sin, player {agent}")

@@ -125,11 +125,53 @@ class ActionMaskModel(TorchModelV2, nn.Module, BasePlayer):
         )
         nn.Module.__init__(self)
 
-        # ... [Your existing encoder and trunk initialization] ...
+        original_space = getattr(obs_space, "original_space", obs_space)
+        self.target_dim = int(original_space["action_mask"].shape[0])
+        if (
+            hasattr(original_space, "spaces")
+            and "observations" in original_space.spaces
+        ):
+            self._obs_shape = original_space["observations"].shape
+        else:
+            self._obs_shape = obs_space.shape
+
+        in_channels = int(self._obs_shape[0])
+
+        self.encoder = nn.Sequential(
+            # no dilation since first layers must detect borders
+            nn.Conv2d(in_channels, 64, kernel_size=3, stride=2, padding=1),
+            nn.ReLU(),
+            nn.MaxPool2d(kernel_size=2, stride=2),
+            nn.Conv2d(64, 128, kernel_size=3, stride=2, padding=1),
+            nn.ReLU(),
+            nn.MaxPool2d(kernel_size=2, stride=2),
+            # dilation to look at broader territory
+            nn.Conv2d(128, 256, kernel_size=3, stride=1, padding=1, dilation=2),
+            nn.ReLU(),
+            nn.Conv2d(256, 256, kernel_size=3, stride=1, padding=1),
+            nn.ReLU(),
+            nn.Flatten(),
+        )
+        with torch.no_grad():
+            dummy = torch.zeros(1, *self._obs_shape, dtype=torch.float32)
+            flat_size = self.encoder(dummy).shape[1]
+            # print("Input size for the trunk:", flat_size)
+        stat_size = int(original_space["stats"].shape[0])
+
+        self.trunk = nn.Sequential(
+            nn.Linear(flat_size + stat_size, 1024),
+            nn.ReLU(),
+            nn.Linear(1024, 512),
+            nn.ReLU(),
+            nn.Linear(512, 512),
+            nn.ReLU(),
+            nn.Linear(512, 512),
+            nn.ReLU(),
+        )
 
         # Policy head now only outputs target_dim + 1 (just the discrete logits and 1 continuous mean)
-        self.policy_head = nn.Linear(256, self.target_dim + 1)
-        self.value_head = nn.Linear(256, 1)
+        self.policy_head = nn.Linear(512, self.target_dim + 1)
+        self.value_head = nn.Linear(512, 1)
         self._value_out = None
 
         # State-independent trainable parameter for continuous exploration variance
@@ -160,14 +202,14 @@ class ActionMaskModel(TorchModelV2, nn.Module, BasePlayer):
         batch_size = logits.shape[0]
         commit_log_std = self.log_std.expand(batch_size)
 
-        # Pack continuous parameters together [batch, 2]
+        # 3. Pack continuous parameters together [batch, 2]
         commit_params = torch.stack([commit_mu, commit_log_std], dim=-1)
 
-        # Apply action masking to target selection
+        # 4. Apply action masking to target selection
         inf_mask = torch.clamp(torch.log(action_mask), min=-1e20)
         masked_target_logits = target_logits + inf_mask
 
-        # Maintain the precise flattening order expected by RLlib
+        # 5. Maintain the precise flattening order expected by RLlib
         masked_logits = torch.cat([commit_params, masked_target_logits], dim=-1)
 
         self._value_out = self.value_head(features).squeeze(-1)

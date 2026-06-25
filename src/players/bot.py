@@ -51,7 +51,7 @@ class BotPolicy(Policy, BasePlayer):
                 targets.append(0)
                 commits.append(np.array([0], dtype=np.float32))
                 continue
-            warnings.warn(f"bot: {env_agent_id} {commit} to {target}")
+            # warnings.warn(f"bot: {env_agent_id} {commit} to {target}")
 
             commit_strength = np.float32(
                 commit / max(1, obs_batch["id_to_money"][i][env_agent_id]),

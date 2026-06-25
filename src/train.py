@@ -28,7 +28,7 @@ def train():
         config=config.to_dict(),
         reuse_actors=True,
         checkpoint_at_end=True,
-        checkpoint_freq=0,
+        checkpoint_freq=1000,
         callbacks=[WandbLoggerCallback("Territorial.io")],
         # resume=True,
         # restore="/home2/mrgaschenko/Territorial.io-AI/logs/custom_env/scaled_reward/PPO_custom_env_174ef_00000_0_2026-06-14_18-24-10",
